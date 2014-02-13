@@ -133,7 +133,6 @@ class ObsParams(dict):
         self.product = product
 
     def __setitem__(self, key, value):
-        # XXX Changing data product name -> ID in a hard-coded fashion
         self.data.req.set_obs_param(self.product, key, repr(value))
         dict.__setitem__(self, key, value)
 
@@ -287,9 +286,7 @@ class CaptureSession(CaptureSessionBase):
             Actual centre frequency in MHz (or NaN if something went wrong)
 
         """
-        # XXX Something like this? [YES]
-        # return self.data.sensor.cbf_${product}_centerfrequency.get_value()
-        return 1284.0
+        return self.data.sensor.delay_center_frequency.get_value() / 1e6
 
     def set_centre_freq(self, centre_freq):
         """Set RF (sky) frequency associated with middle CBF channel.
@@ -300,8 +297,9 @@ class CaptureSession(CaptureSessionBase):
             Desired centre frequency in MHz
 
         """
-        # XXX This will be a data product change instead...
-        pass
+        # This currently only sets the delay compensation reference frequency
+        # XXX Hopefully this will also change downconversion frequency in future
+        self.data.req.set_center_frequency(centre_freq * 1e6)
 
     def standard_setup(self, observer, description, experiment_id=None,
                        nd_params=None, stow_when_done=None, horizon=None, **kwargs):
@@ -466,7 +464,6 @@ class CaptureSession(CaptureSessionBase):
 
         """
         if label:
-            # XXX Changing data product name -> ID in a hard-coded fashion
             self.data.req.set_obs_label(self.product, label)
             user_logger.info("New compound scan: '%s'" % (label,))
 
@@ -722,8 +719,7 @@ class CaptureSession(CaptureSessionBase):
         # Set the antenna target (antennas will already move there if in mode 'POINT')
         ants.req.target(target)
         # Provide target to the data proxy, which will use it as delay-tracking center
-        # XXX No fringe stopping support in data_rts yet
-        # data.req.target(target)
+        data.req.target(target)
         # If using Data simulator and target is azel type, move test target here (allows changes in correlation power)
         if hasattr(data.req, 'cbf_test_target') and target.body_type == 'azel':
             azel = katpoint.rad2deg(np.array(target.azel()))
