@@ -360,6 +360,7 @@ class CaptureSession(CaptureSessionBase):
             If Data centre frequency could not be set
 
         """
+        # XXX Add band selection on digitiser
 
         # Create references to allow easy copy-and-pasting from this function
         session, kat, data, katsys = self, self.kat, self.data, self.kat.sys
