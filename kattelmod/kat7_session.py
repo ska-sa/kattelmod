@@ -724,7 +724,8 @@ class CaptureSession(CaptureSessionBase):
         This sets the target on all antennas involved in the session, as well as
         on the DBE (where it serves as delay-tracking centre). It also moves the
         test target in the DBE simulator to match the requested target (if it is
-        a stationary 'azel' type).
+        a stationary 'azel' type). The target is only set if it differs from the
+        existing target.
 
         Parameters
         ----------
@@ -739,10 +740,16 @@ class CaptureSession(CaptureSessionBase):
         # Convert description string to target object, or keep object as is
         target = target if isinstance(target, katpoint.Target) else katpoint.Target(target)
 
-        # Set the antenna target (antennas will already move there if in mode 'POINT')
-        ants.req.target(target)
+        for ant in ants:
+            # Don't set the target unnecessarily as this upsets the antenna proxy, causing momentary loss of lock
+            current_target = ant.sensor.target.get_value()
+            if target != current_target:
+                # Set the antenna target (antennas will already move there if in mode 'POINT')
+                ant.req.target(target)
         # Provide target to the DBE proxy, which will use it as delay-tracking center
-        dbe.req.target(target)
+        current_target = dbe.sensor.target.get_value()
+        if target != current_target:
+            dbe.req.target(target)
         # If using DBE simulator and target is azel type, move test target here (allows changes in correlation power)
         if hasattr(dbe.req, 'dbe_test_target') and target.body_type == 'azel':
             azel = katpoint.rad2deg(np.array(target.azel()))
