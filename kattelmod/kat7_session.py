@@ -220,11 +220,18 @@ class CaptureSession(CaptureSessionBase):
             activity_logger.info("----- Script starting %s (%s). Output file %s" % (sys.argv[0], ' '.join(sys.argv[1:]), outfile))
 
             # Log details of the script to the back-end
+            # FOR NOW - set script params on both katsys and dbe
             katsys.req.set_script_param('script-starttime', time.time())
             katsys.req.set_script_param('script-endtime', '')
             katsys.req.set_script_param('script-name', sys.argv[0])
             katsys.req.set_script_param('script-arguments', ' '.join(sys.argv[1:]))
             katsys.req.set_script_param('script-status', 'busy')
+
+            dbe.req.k7w_set_script_param('script-starttime', time.time())
+            dbe.req.k7w_set_script_param('script-endtime', '')
+            dbe.req.k7w_set_script_param('script-name', sys.argv[0])
+            dbe.req.k7w_set_script_param('script-arguments', ' '.join(sys.argv[1:]))
+            dbe.req.k7w_set_script_param('script-status', 'busy')
         except Exception, e:
             msg = 'CaptureSession failed to initialise (%s)' % (e,)
             user_logger.error(msg)
@@ -442,13 +449,23 @@ class CaptureSession(CaptureSessionBase):
         user_logger.info(nd_info + " while performing canned commands")
 
         # Log parameters to output file
+        # FOR NOW - set script params on both katsys and dbe
         katsys.req.set_script_param('script-ants', ','.join(ant_names))
         katsys.req.set_script_param('script-observer', observer)
         katsys.req.set_script_param('script-description', description)
         katsys.req.set_script_param('script-experiment-id', experiment_id)
         katsys.req.set_script_param('script-rf-params',
-                                    'Centre freq=%g MHz, Dump rate=%g Hz' % (centre_freq, dump_rate))
+                                     'Centre freq=%g MHz, Dump rate=%g Hz' % (centre_freq, dump_rate))
         katsys.req.set_script_param('script-nd-params', 'Diode=%s, On=%g s, Off=%g s, Period=%g s' %
+                                     (nd_params['diode'], nd_params['on'], nd_params['off'], nd_params['period']))
+
+        dbe.req.k7w_set_script_param('script-ants', ','.join(ant_names))
+        dbe.req.k7w_set_script_param('script-observer', observer)
+        dbe.req.k7w_set_script_param('script-description', description)
+        dbe.req.k7w_set_script_param('script-experiment-id', experiment_id)
+        dbe.req.k7w_set_script_param('script-rf-params',
+                                    'Centre freq=%g MHz, Dump rate=%g Hz' % (centre_freq, dump_rate))
+        dbe.req.k7w_set_script_param('script-nd-params', 'Diode=%s, On=%g s, Off=%g s, Period=%g s' %
                                     (nd_params['diode'], nd_params['on'], nd_params['off'], nd_params['period']))
         # Explicitly set the antenna mask (empty string indicates no mask, meaning all corrproducts are kept in file)
         dbe.req.k7w_set_antenna_mask('' if no_mask else ','.join(ant_names))
@@ -1055,8 +1072,11 @@ class CaptureSession(CaptureSessionBase):
             # Stop streaming KATCP sensor updates to the capture thread
             dbe.req.katcp2spead_stop_stream()
             user_logger.info('Ended data capturing session with experiment ID %s' % (session.experiment_id,))
+            #FOR NOW - set script params on both katsys and dbe
             katsys.req.set_script_param('script-endtime', time.time())
             katsys.req.set_script_param('script-status', 'interrupted' if interrupted else 'completed')
+            dbe.req.k7w_set_script_param('script-endtime', time.time())
+            dbe.req.k7w_set_script_param('script-status', 'interrupted' if interrupted else 'completed')
             activity_logger.info('Ended data capturing session (%s) with experiment ID %s' %
                                  ('interrupted' if interrupted else 'completed', session.experiment_id,))
 
