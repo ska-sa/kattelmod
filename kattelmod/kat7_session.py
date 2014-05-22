@@ -189,7 +189,9 @@ class CaptureSession(CaptureSessionBase):
                 # Set DBE mode (need at least 90-second timeout for narrowband modes)
                 # Setting the mode to the existing one is quick, though
                 user_logger.info("Setting DBE mode to '%s' (this may take a while...)" % (mode,))
-                if not (dbe.req.dbe_mode(mode, timeout=120) and dbe.sensor.dbe_mode.get_value() == mode):
+                # Initiate DBE mode change
+                dbe.req.mode(mode)
+                if not dbe.wait('dbe_mode', mode, timeout=120):
                     raise RequestSensorError("Unable to set DBE mode to '%s' and verify it" % (mode,))
 
             # Prepare the capturing system, which opens the HDF5 file (preferably after mode has been set)
