@@ -180,6 +180,8 @@ class CaptureSession(CaptureSessionBase):
             self.horizon = 3.0
             self._end_of_previous_session = dbe.sensor.k7w_last_dump_timestamp.get_value()
 
+            dbe.req.sensor_sampling('mode_status', 'event')
+
             if mode is None:
                 mode = dbe.sensor.dbe_mode.get_value()
             if mode is None:
@@ -191,7 +193,9 @@ class CaptureSession(CaptureSessionBase):
                 user_logger.info("Setting DBE mode to '%s' (this may take a while...)" % (mode,))
                 # Initiate DBE mode change
                 dbe.req.mode(mode)
-                if not dbe.wait('dbe_mode', mode, timeout=120):
+                if not dbe.wait('mode_status', 'set', timeout=120):
+                    raise RequestSensorError("Unable to set DBE mode to '%s'" % (mode,))
+                if dbe.sensor.dbe_mode.get_value() != mode:
                     raise RequestSensorError("Unable to set DBE mode to '%s' and verify it" % (mode,))
 
             # Prepare the capturing system, which opens the HDF5 file (preferably after mode has been set)
