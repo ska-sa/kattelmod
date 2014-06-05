@@ -784,9 +784,10 @@ class CaptureSession(CaptureSessionBase):
             user_logger.warning("Skipping track, as target '%s' will be below horizon" % (target.name,))
             return False
 
-        session.set_target(target)
-
         session.fire_noise_diode(announce=False, **session.nd_params)
+
+        # This already sets antennas in motion if in mode POINT
+        session.set_target(target)
 
         # Avoid slewing if we are already on target
         if not session.on_target(target):
@@ -872,9 +873,10 @@ class CaptureSession(CaptureSessionBase):
             user_logger.warning("Skipping scan, as target '%s' will be below horizon" % (target.name,))
             return False
 
-        session.set_target(target)
-
         session.fire_noise_diode(announce=False, **session.nd_params)
+
+        # This already sets antennas in motion if in mode POINT
+        session.set_target(target)
 
         user_logger.info('slewing to start of %s' % (scan_name,))
         # Move each antenna to the start position of the scan
