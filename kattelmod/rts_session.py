@@ -579,6 +579,7 @@ class CaptureSession(CaptureSessionBase):
             Noise diode source to use (pin diode is situated in feed horn and
             produces high-level signal, while coupler diode couples into
             electronics after the feed at a much lower level)
+            [ignored for RTS]
         on : float, optional
             Minimum duration for which diode is switched on, in seconds
         off : float, optional
@@ -591,6 +592,7 @@ class CaptureSession(CaptureSessionBase):
         align : {True, False}, optional
             True if noise diode transitions should be aligned with correlator
             dump boundaries, or False if they should happen as soon as possible
+            [ignored for RTS for now]
         announce : {True, False}, optional
             True if start of action should be announced, with details of settings
 
@@ -607,15 +609,13 @@ class CaptureSession(CaptureSessionBase):
         (automatically done when this object is used in a with-statement)!
 
         """
-        # XXX This needs a rethink...
-        return False
+        # XXX Fabricate noise diode sensor
+        # XXX Add alignment sensors and align the firing
+        if self.ants is None:
+            raise ValueError('No antennas specified for session - please run session.standard_setup first')
+        # Create references to allow easy copy-and-pasting from this function
+        session, kat, ants, data, dump_period = self, self.kat, self.ants, self.data, self.dump_period
 
-#
-#         if self.ants is None:
-#             raise ValueError('No antennas specified for session - please run session.standard_setup first')
-#         # Create references to allow easy copy-and-pasting from this function
-#         session, kat, ants, data, dump_period = self, self.kat, self.ants, self.data, self.dump_period
-#
 #         # Wait for the dump period to become known, as it is needed to set a good timeout for the first dump
 #         if dump_period == 0.0:
 #             if not data.wait('k7w_spead_dump_period', lambda sensor: sensor.value > 0, timeout=1.5 * session._requested_dump_period, poll_period=0.2 * session._requested_dump_period):
@@ -644,11 +644,18 @@ class CaptureSession(CaptureSessionBase):
 #                     user_logger.warning('Could not read last dump timestamp - noise diode will be out of sync')
 #                 else:
 #                     user_logger.info('correlator dump arrived')
-#
-#         # If period is non-negative, quit if it is not yet time to fire the noise diode
-#         if period < 0.0 or (time.time() - session.last_nd_firing) < period:
-#             return False
-#
+
+        # Hard-code these variables for now until the required sensors are implemented
+        dump_period = session.dump_period = session._requested_dump_period
+        user_logger.warning('Could not read actual dump period - noise diode will be out of sync')
+        user_logger.info('waiting for correlator dump to arrive')
+        last_dump = time.time()
+        user_logger.warning('Could not read last dump timestamp - noise diode will be out of sync')
+
+        # If period is non-negative, quit if it is not yet time to fire the noise diode
+        if period < 0.0 or (time.time() - session.last_nd_firing) < period:
+            return False
+
 #         if align:
 #             # Round "on" duration up to the nearest integer multiple of dump period
 #             on = np.ceil(float(on) / dump_period) * dump_period
@@ -661,11 +668,11 @@ class CaptureSession(CaptureSessionBase):
 #             while next_dump < now + lead_time:
 #                 next_dump += dump_period
 #
-#         if announce:
-#             user_logger.info("Firing '%s' noise diode (%g seconds on, %g seconds off)" % (diode, on, off))
-#         else:
-#             user_logger.info('firing noise diode')
-#
+        if announce:
+            user_logger.info("Firing '%s' noise diode (%g seconds on, %g seconds off)" % (diode, on, off))
+        else:
+            user_logger.info('firing noise diode')
+
 #         if align:
 #             # Schedule noise diode switch-on on all antennas at the next suitable dump boundary
 #             ants.req.rfe3_rfe15_noise_source_on(diode, 1, 1000 * next_dump, 0)
@@ -681,20 +688,22 @@ class CaptureSession(CaptureSessionBase):
 #             # Mark on -> off transition as last firing
 #             session.last_nd_firing = next_dump + on
 #         else:
-#             # Switch noise diode on on all antennas
-#             ants.req.rfe3_rfe15_noise_source_on(diode, 1, 'now', 0)
-#             # If using Data simulator, fire the simulated noise diode for desired period to toggle power levels in output
-#             if hasattr(data.req, 'data_fire_nd'):
-#                 data.req.data_fire_nd(np.ceil(float(on) / dump_period))
-#             time.sleep(on)
-#             # Mark on -> off transition as last firing
-#             session.last_nd_firing = time.time()
-#             # Switch noise diode off on all antennas
-#             ants.req.rfe3_rfe15_noise_source_on(diode, 0, 'now', 0)
-#             time.sleep(off)
-#
-#         user_logger.info('noise diode fired')
-#         return True
+
+        # [Else block]
+        # Switch noise diode on on all antennas
+        ants.req.dig_noise_source('now', 1)
+        # If using Data simulator, fire the simulated noise diode for desired period to toggle power levels in output
+        if hasattr(data.req, 'data_fire_nd'):
+            data.req.data_fire_nd(np.ceil(float(on) / dump_period))
+        time.sleep(on)
+        # Mark on -> off transition as last firing
+        session.last_nd_firing = time.time()
+        # Switch noise diode off on all antennas
+        ants.req.dig_noise_source('now', 0)
+        time.sleep(off)
+
+        user_logger.info('noise diode fired')
+        return True
 
     def set_target(self, target):
         """Set target to use for tracking or scanning.
