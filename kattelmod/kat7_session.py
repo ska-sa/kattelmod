@@ -180,7 +180,7 @@ class CaptureSession(CaptureSessionBase):
             self.horizon = 3.0
             self._end_of_previous_session = dbe.sensor.k7w_last_dump_timestamp.get_value()
 
-            dbe.req.sensor_sampling('mode_status', 'event')
+            dbe.sensor.mode_status.set_strategy('event')
 
             if mode is None:
                 mode = dbe.sensor.dbe_mode.get_value()
