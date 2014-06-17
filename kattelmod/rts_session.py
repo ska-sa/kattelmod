@@ -611,13 +611,12 @@ class CaptureSession(CaptureSessionBase):
         (automatically done when this object is used in a with-statement)!
 
         """
-        # XXX Fabricate noise diode sensor
         # XXX Add alignment sensors and align the firing
         if self.ants is None:
             raise ValueError('No antennas specified for session - please run session.standard_setup first')
         # Create references to allow easy copy-and-pasting from this function
-        session, kat, ants, data, dump_period = self, self.kat, self.ants, self.data, self.dump_period
-
+        session, kat, ants = self, self.kat, self.ants
+        data, product, dump_period = self.data, self.product, self.dump_period
 #         # Wait for the dump period to become known, as it is needed to set a good timeout for the first dump
 #         if dump_period == 0.0:
 #             if not data.wait('k7w_spead_dump_period', lambda sensor: sensor.value > 0, timeout=1.5 * session._requested_dump_period, poll_period=0.2 * session._requested_dump_period):
@@ -693,15 +692,24 @@ class CaptureSession(CaptureSessionBase):
 
         # [Else block]
         # Switch noise diode on on all antennas
+        on_time = time.time()
         ants.req.dig_noise_source('now', 1)
+        # Fake the noise diode sensor for now via cam2spead
+        for ant in ants:
+            data.set_nd_sensor(product, ant.name, on_time, True)
         # If using Data simulator, fire the simulated noise diode for desired period to toggle power levels in output
         if hasattr(data.req, 'data_fire_nd'):
             data.req.data_fire_nd(np.ceil(float(on) / dump_period))
         time.sleep(on)
+
         # Mark on -> off transition as last firing
-        session.last_nd_firing = time.time()
+        off_time = time.time()
+        session.last_nd_firing = off_time
         # Switch noise diode off on all antennas
         ants.req.dig_noise_source('now', 0)
+        # Fake the noise diode sensor for now via cam2spead
+        for ant in ants:
+            data.set_nd_sensor(product, ant.name, off_time, False)
         time.sleep(off)
 
         user_logger.info('noise diode fired')
