@@ -42,6 +42,8 @@ def standard_script_options(usage, description):
     parser.add_option('--sb-id-code', type='string',
                       help='Schedule block id code for observation, '
                            'required in order to allocate correct resources')
+    parser.add_option('--project-id',
+                      help='Project ID code for the observation (**required**)')
     parser.add_option('-u', '--experiment-id',
                       help='Experiment ID used to link various parts of '
                       'experiment together (use sb-id-code by default, or random UUID)')
@@ -118,6 +120,9 @@ def verify_and_connect(opts):
     # if not hasattr(opts, 'sb_id_code') or opts.sb_id_code is None:
     #    raise ValueError('Please specify the --sb-id-code option '
     #                     '(yes, this is a non-optional option...)')
+    if not hasattr(opts, 'project_id') or opts.project_id is None:
+        raise ValueError('Please specify the project id code via the --project-id option '
+                         '(yes, this is a non-optional option...)')
 
     # For now we force the sb-id-code as the experiment_id as no one is using it
     # This will change in future
