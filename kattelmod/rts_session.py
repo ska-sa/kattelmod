@@ -98,18 +98,20 @@ class ScriptLogHandler(logging.Handler):
     ----------
     data : :class:`KATClient` object
         Data proxy device for the session
+    product : string
+        Name of data product
 
     """
-    def __init__(self, data):
+    def __init__(self, data, product):
         logging.Handler.__init__(self)
         self.data = data
+        self.product = product
 
     def emit(self, record):
         """Emit a logging record."""
         try:
             msg = self.format(record)
-# XXX This probably has to go to cam2spead as a req/sensor combo [YES]
-#            self.data.req.k7w_script_log(msg)
+            self.data.req.script_log(self.product, msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
