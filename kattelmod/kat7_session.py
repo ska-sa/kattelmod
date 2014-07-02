@@ -159,6 +159,11 @@ class CaptureSession(CaptureSessionBase):
         If capturing system failed to initialise or DBE mode could not be set
 
     """
+
+    # see https://skaafrica.atlassian.net/browse/KAT-1578
+    CAPTURE_COMMAND_TIMEOUT = 10.
+    "Timeout to be used for dbe.req.*capture_* requests that are slow"
+
     def __init__(self, kat, mode=None, **kwargs):
         try:
             self.kat = kat
@@ -199,7 +204,7 @@ class CaptureSession(CaptureSessionBase):
                     raise RequestSensorError("Unable to set DBE mode to '%s' and verify it" % (mode,))
 
             # Prepare the capturing system, which opens the HDF5 file (preferably after mode has been set)
-            reply = dbe.req.k7w_capture_init()
+            reply = dbe.req.k7w_capture_init(timeout=self.CAPTURE_COMMAND_TIMEOUT)
             if not reply.succeeded:
                 raise RequestSensorError(reply[1])
             # Start streaming KATCP sensor updates via SPEAD to the capture thread
@@ -436,7 +441,9 @@ class CaptureSession(CaptureSessionBase):
             centre_freq = session.get_centre_freq()
         # The DBE proxy needs to know the dump period (in s) as well as the RF centre frequency
         # of 400-MHz downconverted band (in Hz), which is used for fringe stopping / delay tracking
-        dbe.req.capture_setup(1. / dump_rate, session.get_centre_freq(200.0) * 1e6)
+        acc_len = 1. / dump_rate
+        dbe.req.capture_setup(acc_len, session.get_centre_freq(200.0) * 1e6,
+                              timeout=self.CAPTURE_COMMAND_TIMEOUT + acc_len)
 
         user_logger.info('Antennas used = %s' % (' '.join(ant_names),))
         user_logger.info('Observer = %s' % (observer,))
@@ -504,7 +511,7 @@ class CaptureSession(CaptureSessionBase):
     def capture_start(self):
         """Start capturing data to HDF5 file."""
         # This starts the SPEAD stream on the DBE
-        self.dbe.req.dbe_capture_start('k7')
+        self.dbe.req.dbe_capture_start('k7', timeout=self.CAPTURE_COMMAND_TIMEOUT)
 
     def label(self, label):
         """Add timestamped label to HDF5 file.
@@ -1076,7 +1083,7 @@ class CaptureSession(CaptureSessionBase):
             session.output_file = os.path.basename(outfile).replace('.unaugmented', '')
 
             # Stop the DBE data flow (this indirectly stops k7writer via a stop packet, but the HDF5 file is left open)
-            dbe.req.dbe_capture_stop('k7')
+            dbe.req.dbe_capture_stop('k7', timeout=self.CAPTURE_COMMAND_TIMEOUT)
             # Stop streaming KATCP sensor updates to the capture thread
             dbe.req.katcp2spead_stop_stream()
             user_logger.info('Ended data capturing session with experiment ID %s' % (session.experiment_id,))
@@ -1099,7 +1106,7 @@ class CaptureSession(CaptureSessionBase):
             # Disable logging to HDF5 file
             user_logger.removeHandler(self._script_log_handler)
             # Finally close the HDF5 file and prepare for augmentation after all logging and parameter settings are done
-            dbe.req.k7w_capture_done()
+            dbe.req.k7w_capture_done(timeout=self.CAPTURE_COMMAND_TIMEOUT)
             activity_logger.info("----- Script ended  %s (%s)" % (sys.argv[0], ' '.join(sys.argv[1:])))
 
 
