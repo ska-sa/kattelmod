@@ -696,7 +696,7 @@ class CaptureSession(CaptureSessionBase):
         ants.req.dig_noise_source('now', 1)
         # Fake the noise diode sensor for now via cam2spead
         for ant in ants:
-            data.set_nd_sensor(product, ant.name, on_time, True)
+            data.req.set_nd_sensor(product, ant.name, on_time, 1)
         # If using Data simulator, fire the simulated noise diode for desired period to toggle power levels in output
         if hasattr(data.req, 'data_fire_nd'):
             data.req.data_fire_nd(np.ceil(float(on) / dump_period))
@@ -709,7 +709,7 @@ class CaptureSession(CaptureSessionBase):
         ants.req.dig_noise_source('now', 0)
         # Fake the noise diode sensor for now via cam2spead
         for ant in ants:
-            data.set_nd_sensor(product, ant.name, off_time, False)
+            data.req.set_nd_sensor(product, ant.name, off_time, 0)
         time.sleep(off)
 
         user_logger.info('noise diode fired')
