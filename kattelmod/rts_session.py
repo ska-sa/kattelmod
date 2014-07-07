@@ -194,6 +194,8 @@ class CaptureSession(CaptureSessionBase):
                 raise ValueError("Data proxy '%s' is not connected "
                                  "(is the KAT system running?)" % (data.name,))
             self.data = self.dbe = data
+            # XXX Hard-code product name for now
+            self.product = product = 'c856M32k' if product is None else product
 
             # Default settings for session parameters (in case standard_setup is not called)
             self.ants = None
@@ -209,12 +211,10 @@ class CaptureSession(CaptureSessionBase):
             # # XXX last dump timestamp?
             # self._end_of_previous_session = data.sensor.k7w_last_dump_timestamp.get_value()
 
-            # XXX Hard-code product name for now
-            self.product = 'c856M32k' if product is None else product
-            data.req.product_configure(self.product, dump_rate, timeout=330)
+            data.req.product_configure(product, dump_rate, timeout=330)
 
             # Enable logging to the new HDF5 file via the usual logger (using same formatting and filtering)
-            self._script_log_handler = ScriptLogHandler(data)
+            self._script_log_handler = ScriptLogHandler(data, product)
             if len(user_logger.handlers) > 0:
                 self._script_log_handler.setLevel(user_logger.handlers[0].level)
                 self._script_log_handler.setFormatter(user_logger.handlers[0].formatter)
@@ -224,7 +224,7 @@ class CaptureSession(CaptureSessionBase):
             user_logger.info('New data capturing session')
             user_logger.info('--------------------------')
             user_logger.info('Data proxy used = %s' % (data.name,))
-            user_logger.info('Data product = %s' % (self.product,))
+            user_logger.info('Data product = %s' % (product,))
 
             # XXX file name? SB ID? Program block ID? -> [file via capture_done]
             # # Obtain the name of the file currently being written to
@@ -237,7 +237,7 @@ class CaptureSession(CaptureSessionBase):
             activity_logger.info("----- Script starting %s (%s). Output file %s" % (sys.argv[0], ' '.join(sys.argv[1:]), outfile))
 
             # Log details of the script to the back-end
-            self.obs_params = ObsParams(data, self.product)
+            self.obs_params = ObsParams(data, product)
             katsys.req.set_script_param('script-starttime', time.time())
             katsys.req.set_script_param('script-endtime', '')
             katsys.req.set_script_param('script-name', sys.argv[0])
