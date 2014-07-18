@@ -418,6 +418,8 @@ class CaptureSession(CaptureSessionBase):
         self.obs_params['horizon'] = session.horizon
         self.obs_params['centre_freq'] = centre_freq
         self.obs_params['product'] = self.product
+        self.obs_params['script_name'] = sys.argv[0]
+        self.obs_params['script_arguments'] = ' '.join(sys.argv[1:])
         self.obs_params.update(kwargs)
         # Send script options to CAM system
         katsys.req.set_script_param('script-ants', ','.join(ant_names))
