@@ -55,10 +55,6 @@ def standard_script_options(usage, description):
                       help='Centre frequency, in MHz (default=%default)')
     parser.add_option('-r', '--dump-rate', type='float', default=1.0,
                       help='Dump rate, in Hz (default=%default)')
-# This option used to be in observe1, but did not make it to the
-# common set of options of observe1 / observe2
-#    parser.add_option('-w', '--discard-slews', dest='record_slews', action='store_false', default=True,
-#                      help='Do not record all the time, i.e. pause while antennas are slewing to the next target')
     parser.add_option('-n', '--nd-params', default='coupler,10,10,180',
                       help="Noise diode parameters as '<diode>,<on>,<off>,<period>', "
                       "in seconds or 'off' for no noise diode firing (default='%default')")
@@ -73,10 +69,16 @@ def standard_script_options(usage, description):
     parser.add_option('--stow-when-done', action='store_true', default=False,
                       help="Stow the antennas when the capture session ends")
     parser.add_option('--mode',
-                      help="DBE mode to use for experiment, keeps current mode by default)")
+                      help="DBE mode to use for experiment, keeps current mode by default [KAT-7 only]")
     parser.add_option('--dbe-centre-freq', type='float', default=None,
                       help="DBE centre frequency in MHz, used to select coarse band for "
-                           "narrowband modes (unchanged by default)")
+                           "narrowband modes (unchanged by default) [KAT-7 only]")
+    parser.add_option('--product',
+                      help="CBF data product to use for experiment, e.g. 'c856M32k' [MKAT only]")
+    parser.add_option('--reduction-name',
+                      help="Name of script to use in reduction pipeline [MKAT only]")
+    parser.add_option('--reduction-arguments',
+                      help="Arguments for script in reduction pipeline [MKAT only]")
     parser.add_option('--horizon', type='float', default=5.0,
                       help="Session horizon (elevation limit) in degrees (default=%default)")
     parser.add_option('--no-mask', action='store_true', default=False,
