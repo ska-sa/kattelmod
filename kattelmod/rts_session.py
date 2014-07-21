@@ -19,6 +19,7 @@ import time
 import logging
 import sys
 import os.path
+import collections
 
 import numpy as np
 import katpoint
@@ -118,7 +119,7 @@ class ScriptLogHandler(logging.Handler):
             self.handleError(record)
 
 
-class ObsParams(dict):
+class ObsParams(collections.MutableMapping):
     """Dictionary-ish that writes observation parameters to CAM SPEAD stream.
 
     Parameters
@@ -130,13 +131,36 @@ class ObsParams(dict):
 
     """
     def __init__(self, data, product):
-        dict.__init__(self)
+        self._dict = dict()
         self.data = data
         self.product = product
 
+    def __getitem__(self, key):
+        return self._dict[key]
+
     def __setitem__(self, key, value):
+        """Set item both in dictionary and SPEAD stream."""
         self.data.req.set_obs_param(self.product, key, repr(value))
-        dict.__setitem__(self, key, value)
+        self._dict[key] = value
+
+    def __delitem__(self, key):
+        self.data.req.set_obs_param(self.product, key, repr(None))
+        del self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __contains__(self, key):
+        return key in self._dict
+
+    def __str__(self):
+        return str(self._dict)
+
+    def __repr__(self):
+        return repr(self._dict)
 
 
 class RequestSensorError(Exception):
