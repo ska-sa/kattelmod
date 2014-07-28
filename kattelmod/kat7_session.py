@@ -159,6 +159,11 @@ class CaptureSession(CaptureSessionBase):
         If capturing system failed to initialise or DBE mode could not be set
 
     """
+
+    # see https://skaafrica.atlassian.net/browse/KAT-1578
+    CAPTURE_COMMAND_TIMEOUT = 10.
+    "Timeout to be used for dbe.req.*capture_* requests that are slow"
+
     def __init__(self, kat, mode=None, **kwargs):
         try:
             self.kat = kat
@@ -180,6 +185,8 @@ class CaptureSession(CaptureSessionBase):
             self.horizon = 3.0
             self._end_of_previous_session = dbe.sensor.k7w_last_dump_timestamp.get_value()
 
+            dbe.sensor.mode_status.set_strategy('event')
+
             if mode is None:
                 mode = dbe.sensor.dbe_mode.get_value()
             if mode is None:
@@ -189,11 +196,15 @@ class CaptureSession(CaptureSessionBase):
                 # Set DBE mode (need at least 90-second timeout for narrowband modes)
                 # Setting the mode to the existing one is quick, though
                 user_logger.info("Setting DBE mode to '%s' (this may take a while...)" % (mode,))
-                if not (dbe.req.dbe_mode(mode, timeout=120) and dbe.sensor.dbe_mode.get_value() == mode):
+                # Initiate DBE mode change
+                dbe.req.mode(mode)
+                if not dbe.wait('mode_status', 'set', timeout=120):
+                    raise RequestSensorError("Unable to set DBE mode to '%s'" % (mode,))
+                if dbe.sensor.dbe_mode.get_value() != mode:
                     raise RequestSensorError("Unable to set DBE mode to '%s' and verify it" % (mode,))
 
             # Prepare the capturing system, which opens the HDF5 file (preferably after mode has been set)
-            reply = dbe.req.k7w_capture_init()
+            reply = dbe.req.k7w_capture_init(timeout=self.CAPTURE_COMMAND_TIMEOUT)
             if not reply.succeeded:
                 raise RequestSensorError(reply[1])
             # Start streaming KATCP sensor updates via SPEAD to the capture thread
@@ -220,11 +231,18 @@ class CaptureSession(CaptureSessionBase):
             activity_logger.info("----- Script starting %s (%s). Output file %s" % (sys.argv[0], ' '.join(sys.argv[1:]), outfile))
 
             # Log details of the script to the back-end
+            # FOR NOW - set script params on both katsys and dbe
             katsys.req.set_script_param('script-starttime', time.time())
             katsys.req.set_script_param('script-endtime', '')
             katsys.req.set_script_param('script-name', sys.argv[0])
             katsys.req.set_script_param('script-arguments', ' '.join(sys.argv[1:]))
             katsys.req.set_script_param('script-status', 'busy')
+
+            dbe.req.k7w_set_script_param('script-starttime', time.time())
+            dbe.req.k7w_set_script_param('script-endtime', '')
+            dbe.req.k7w_set_script_param('script-name', sys.argv[0])
+            dbe.req.k7w_set_script_param('script-arguments', ' '.join(sys.argv[1:]))
+            dbe.req.k7w_set_script_param('script-status', 'busy')
         except Exception, e:
             msg = 'CaptureSession failed to initialise (%s)' % (e,)
             user_logger.error(msg)
@@ -423,7 +441,9 @@ class CaptureSession(CaptureSessionBase):
             centre_freq = session.get_centre_freq()
         # The DBE proxy needs to know the dump period (in s) as well as the RF centre frequency
         # of 400-MHz downconverted band (in Hz), which is used for fringe stopping / delay tracking
-        dbe.req.capture_setup(1. / dump_rate, session.get_centre_freq(200.0) * 1e6)
+        acc_len = 1. / dump_rate
+        dbe.req.capture_setup(acc_len, session.get_centre_freq(200.0) * 1e6,
+                              timeout=self.CAPTURE_COMMAND_TIMEOUT + acc_len)
 
         user_logger.info('Antennas used = %s' % (' '.join(ant_names),))
         user_logger.info('Observer = %s' % (observer,))
@@ -442,13 +462,23 @@ class CaptureSession(CaptureSessionBase):
         user_logger.info(nd_info + " while performing canned commands")
 
         # Log parameters to output file
+        # FOR NOW - set script params on both katsys and dbe
         katsys.req.set_script_param('script-ants', ','.join(ant_names))
         katsys.req.set_script_param('script-observer', observer)
         katsys.req.set_script_param('script-description', description)
         katsys.req.set_script_param('script-experiment-id', experiment_id)
         katsys.req.set_script_param('script-rf-params',
-                                    'Centre freq=%g MHz, Dump rate=%g Hz' % (centre_freq, dump_rate))
+                                     'Centre freq=%g MHz, Dump rate=%g Hz' % (centre_freq, dump_rate))
         katsys.req.set_script_param('script-nd-params', 'Diode=%s, On=%g s, Off=%g s, Period=%g s' %
+                                     (nd_params['diode'], nd_params['on'], nd_params['off'], nd_params['period']))
+
+        dbe.req.k7w_set_script_param('script-ants', ','.join(ant_names))
+        dbe.req.k7w_set_script_param('script-observer', observer)
+        dbe.req.k7w_set_script_param('script-description', description)
+        dbe.req.k7w_set_script_param('script-experiment-id', experiment_id)
+        dbe.req.k7w_set_script_param('script-rf-params',
+                                    'Centre freq=%g MHz, Dump rate=%g Hz' % (centre_freq, dump_rate))
+        dbe.req.k7w_set_script_param('script-nd-params', 'Diode=%s, On=%g s, Off=%g s, Period=%g s' %
                                     (nd_params['diode'], nd_params['on'], nd_params['off'], nd_params['period']))
         # Explicitly set the antenna mask (empty string indicates no mask, meaning all corrproducts are kept in file)
         dbe.req.k7w_set_antenna_mask('' if no_mask else ','.join(ant_names))
@@ -481,7 +511,7 @@ class CaptureSession(CaptureSessionBase):
     def capture_start(self):
         """Start capturing data to HDF5 file."""
         # This starts the SPEAD stream on the DBE
-        self.dbe.req.dbe_capture_start('k7')
+        self.dbe.req.dbe_capture_start('k7', timeout=self.CAPTURE_COMMAND_TIMEOUT)
 
     def label(self, label):
         """Add timestamped label to HDF5 file.
@@ -724,7 +754,8 @@ class CaptureSession(CaptureSessionBase):
         This sets the target on all antennas involved in the session, as well as
         on the DBE (where it serves as delay-tracking centre). It also moves the
         test target in the DBE simulator to match the requested target (if it is
-        a stationary 'azel' type).
+        a stationary 'azel' type). The target is only set if it differs from the
+        existing target.
 
         Parameters
         ----------
@@ -739,10 +770,16 @@ class CaptureSession(CaptureSessionBase):
         # Convert description string to target object, or keep object as is
         target = target if isinstance(target, katpoint.Target) else katpoint.Target(target)
 
-        # Set the antenna target (antennas will already move there if in mode 'POINT')
-        ants.req.target(target)
+        for ant in ants:
+            # Don't set the target unnecessarily as this upsets the antenna proxy, causing momentary loss of lock
+            current_target = ant.sensor.target.get_value()
+            if target != current_target:
+                # Set the antenna target (antennas will already move there if in mode 'POINT')
+                ant.req.target(target)
         # Provide target to the DBE proxy, which will use it as delay-tracking center
-        dbe.req.target(target)
+        current_target = dbe.sensor.target.get_value()
+        if target != current_target:
+            dbe.req.target(target)
         # If using DBE simulator and target is azel type, move test target here (allows changes in correlation power)
         if hasattr(dbe.req, 'dbe_test_target') and target.body_type == 'azel':
             azel = katpoint.rad2deg(np.array(target.azel()))
@@ -795,11 +832,12 @@ class CaptureSession(CaptureSessionBase):
             user_logger.warning("Skipping track, as target '%s' will be below horizon" % (target.name,))
             return False
 
+        session.fire_noise_diode(announce=False, **session.nd_params)
+
         # Set the drive strategy for how antenna moves between targets, and the target
         ants.req.drive_strategy(drive_strategy)
+        # This already sets antennas in motion if in mode POINT
         session.set_target(target)
-
-        session.fire_noise_diode(announce=False, **session.nd_params)
 
         # Avoid slewing if we are already on target
         if not session.on_target(target):
@@ -893,11 +931,12 @@ class CaptureSession(CaptureSessionBase):
             user_logger.warning("Skipping scan, as target '%s' will be below horizon" % (target.name,))
             return False
 
+        session.fire_noise_diode(announce=False, **session.nd_params)
+
         # Set the drive strategy for how antenna moves between targets, and the target
         ants.req.drive_strategy(drive_strategy)
+        # This already sets antennas in motion if in mode POINT
         session.set_target(target)
-
-        session.fire_noise_diode(announce=False, **session.nd_params)
 
         user_logger.info('slewing to start of %s' % (scan_name,))
         # Move each antenna to the start position of the scan
@@ -1044,12 +1083,15 @@ class CaptureSession(CaptureSessionBase):
             session.output_file = os.path.basename(outfile).replace('.unaugmented', '')
 
             # Stop the DBE data flow (this indirectly stops k7writer via a stop packet, but the HDF5 file is left open)
-            dbe.req.dbe_capture_stop('k7')
+            dbe.req.dbe_capture_stop('k7', timeout=self.CAPTURE_COMMAND_TIMEOUT)
             # Stop streaming KATCP sensor updates to the capture thread
             dbe.req.katcp2spead_stop_stream()
             user_logger.info('Ended data capturing session with experiment ID %s' % (session.experiment_id,))
+            #FOR NOW - set script params on both katsys and dbe
             katsys.req.set_script_param('script-endtime', time.time())
             katsys.req.set_script_param('script-status', 'interrupted' if interrupted else 'completed')
+            dbe.req.k7w_set_script_param('script-endtime', time.time())
+            dbe.req.k7w_set_script_param('script-status', 'interrupted' if interrupted else 'completed')
             activity_logger.info('Ended data capturing session (%s) with experiment ID %s' %
                                  ('interrupted' if interrupted else 'completed', session.experiment_id,))
 
@@ -1064,7 +1106,7 @@ class CaptureSession(CaptureSessionBase):
             # Disable logging to HDF5 file
             user_logger.removeHandler(self._script_log_handler)
             # Finally close the HDF5 file and prepare for augmentation after all logging and parameter settings are done
-            dbe.req.k7w_capture_done()
+            dbe.req.k7w_capture_done(timeout=self.CAPTURE_COMMAND_TIMEOUT)
             activity_logger.info("----- Script ended  %s (%s)" % (sys.argv[0], ' '.join(sys.argv[1:])))
 
 

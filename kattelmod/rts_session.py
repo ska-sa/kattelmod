@@ -19,6 +19,7 @@ import time
 import logging
 import sys
 import os.path
+import collections
 
 import numpy as np
 import katpoint
@@ -98,25 +99,27 @@ class ScriptLogHandler(logging.Handler):
     ----------
     data : :class:`KATClient` object
         Data proxy device for the session
+    product : string
+        Name of data product
 
     """
-    def __init__(self, data):
+    def __init__(self, data, product):
         logging.Handler.__init__(self)
         self.data = data
+        self.product = product
 
     def emit(self, record):
         """Emit a logging record."""
         try:
             msg = self.format(record)
-# XXX This probably has to go to cam2spead as a req/sensor combo [YES]
-#            self.data.req.k7w_script_log(msg)
+            self.data.req.script_log(self.product, msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
 
 
-class ObsParams(dict):
+class ObsParams(collections.MutableMapping):
     """Dictionary-ish that writes observation parameters to CAM SPEAD stream.
 
     Parameters
@@ -128,14 +131,36 @@ class ObsParams(dict):
 
     """
     def __init__(self, data, product):
-        dict.__init__(self)
+        self._dict = dict()
         self.data = data
         self.product = product
 
+    def __getitem__(self, key):
+        return self._dict[key]
+
     def __setitem__(self, key, value):
-        # XXX Changing data product name -> ID in a hard-coded fashion
+        """Set item both in dictionary and SPEAD stream."""
         self.data.req.set_obs_param(self.product, key, repr(value))
-        dict.__setitem__(self, key, value)
+        self._dict[key] = value
+
+    def __delitem__(self, key):
+        self.data.req.set_obs_param(self.product, key, repr(None))
+        del self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __contains__(self, key):
+        return key in self._dict
+
+    def __str__(self):
+        return str(self._dict)
+
+    def __repr__(self):
+        return repr(self._dict)
 
 
 class RequestSensorError(Exception):
@@ -193,6 +218,8 @@ class CaptureSession(CaptureSessionBase):
                 raise ValueError("Data proxy '%s' is not connected "
                                  "(is the KAT system running?)" % (data.name,))
             self.data = self.dbe = data
+            # XXX Hard-code product name for now
+            self.product = product = 'c856M32k' if product is None else product
 
             # Default settings for session parameters (in case standard_setup is not called)
             self.ants = None
@@ -208,12 +235,10 @@ class CaptureSession(CaptureSessionBase):
             # # XXX last dump timestamp?
             # self._end_of_previous_session = data.sensor.k7w_last_dump_timestamp.get_value()
 
-            # XXX Hard-code product name for now
-            self.product = 'c856M32k' if product is None else product
-            data.req.product_configure(self.product, dump_rate, timeout=330)
+            data.req.product_configure(product, dump_rate, timeout=330)
 
             # Enable logging to the new HDF5 file via the usual logger (using same formatting and filtering)
-            self._script_log_handler = ScriptLogHandler(data)
+            self._script_log_handler = ScriptLogHandler(data, product)
             if len(user_logger.handlers) > 0:
                 self._script_log_handler.setLevel(user_logger.handlers[0].level)
                 self._script_log_handler.setFormatter(user_logger.handlers[0].formatter)
@@ -223,7 +248,7 @@ class CaptureSession(CaptureSessionBase):
             user_logger.info('New data capturing session')
             user_logger.info('--------------------------')
             user_logger.info('Data proxy used = %s' % (data.name,))
-            user_logger.info('Data product = %s' % (self.product,))
+            user_logger.info('Data product = %s' % (product,))
 
             # XXX file name? SB ID? Program block ID? -> [file via capture_done]
             # # Obtain the name of the file currently being written to
@@ -236,7 +261,7 @@ class CaptureSession(CaptureSessionBase):
             activity_logger.info("----- Script starting %s (%s). Output file %s" % (sys.argv[0], ' '.join(sys.argv[1:]), outfile))
 
             # Log details of the script to the back-end
-            self.obs_params = ObsParams(data, self.product)
+            self.obs_params = ObsParams(data, product)
             katsys.req.set_script_param('script-starttime', time.time())
             katsys.req.set_script_param('script-endtime', '')
             katsys.req.set_script_param('script-name', sys.argv[0])
@@ -287,9 +312,7 @@ class CaptureSession(CaptureSessionBase):
             Actual centre frequency in MHz (or NaN if something went wrong)
 
         """
-        # XXX Something like this? [YES]
-        # return self.data.sensor.cbf_${product}_centerfrequency.get_value()
-        return 1284.0
+        return self.data.sensor.delay_center_frequency.get_value() / 1e6
 
     def set_centre_freq(self, centre_freq):
         """Set RF (sky) frequency associated with middle CBF channel.
@@ -300,8 +323,9 @@ class CaptureSession(CaptureSessionBase):
             Desired centre frequency in MHz
 
         """
-        # XXX This will be a data product change instead...
-        pass
+        # This currently only sets the delay compensation reference frequency
+        # XXX Hopefully this will also change downconversion frequency in future
+        self.data.req.set_center_frequency(centre_freq * 1e6)
 
     def standard_setup(self, observer, description, experiment_id=None,
                        nd_params=None, stow_when_done=None, horizon=None, **kwargs):
@@ -362,6 +386,7 @@ class CaptureSession(CaptureSessionBase):
             If Data centre frequency could not be set
 
         """
+        # XXX Add band selection on digitiser
 
         # Create references to allow easy copy-and-pasting from this function
         session, kat, data, katsys = self, self.kat, self.data, self.kat.sys
@@ -417,6 +442,8 @@ class CaptureSession(CaptureSessionBase):
         self.obs_params['horizon'] = session.horizon
         self.obs_params['centre_freq'] = centre_freq
         self.obs_params['product'] = self.product
+        self.obs_params['script_name'] = sys.argv[0]
+        self.obs_params['script_arguments'] = ' '.join(sys.argv[1:])
         self.obs_params.update(kwargs)
         # Send script options to CAM system
         katsys.req.set_script_param('script-ants', ','.join(ant_names))
@@ -466,7 +493,6 @@ class CaptureSession(CaptureSessionBase):
 
         """
         if label:
-            # XXX Changing data product name -> ID in a hard-coded fashion
             self.data.req.set_obs_label(self.product, label)
             user_logger.info("New compound scan: '%s'" % (label,))
 
@@ -581,6 +607,7 @@ class CaptureSession(CaptureSessionBase):
             Noise diode source to use (pin diode is situated in feed horn and
             produces high-level signal, while coupler diode couples into
             electronics after the feed at a much lower level)
+            [ignored for RTS]
         on : float, optional
             Minimum duration for which diode is switched on, in seconds
         off : float, optional
@@ -593,6 +620,7 @@ class CaptureSession(CaptureSessionBase):
         align : {True, False}, optional
             True if noise diode transitions should be aligned with correlator
             dump boundaries, or False if they should happen as soon as possible
+            [ignored for RTS for now]
         announce : {True, False}, optional
             True if start of action should be announced, with details of settings
 
@@ -609,15 +637,12 @@ class CaptureSession(CaptureSessionBase):
         (automatically done when this object is used in a with-statement)!
 
         """
-        # XXX This needs a rethink...
-        return False
-
-#
-#         if self.ants is None:
-#             raise ValueError('No antennas specified for session - please run session.standard_setup first')
-#         # Create references to allow easy copy-and-pasting from this function
-#         session, kat, ants, data, dump_period = self, self.kat, self.ants, self.data, self.dump_period
-#
+        # XXX Add alignment sensors and align the firing
+        if self.ants is None:
+            raise ValueError('No antennas specified for session - please run session.standard_setup first')
+        # Create references to allow easy copy-and-pasting from this function
+        session, kat, ants = self, self.kat, self.ants
+        data, product, dump_period = self.data, self.product, self.dump_period
 #         # Wait for the dump period to become known, as it is needed to set a good timeout for the first dump
 #         if dump_period == 0.0:
 #             if not data.wait('k7w_spead_dump_period', lambda sensor: sensor.value > 0, timeout=1.5 * session._requested_dump_period, poll_period=0.2 * session._requested_dump_period):
@@ -646,11 +671,18 @@ class CaptureSession(CaptureSessionBase):
 #                     user_logger.warning('Could not read last dump timestamp - noise diode will be out of sync')
 #                 else:
 #                     user_logger.info('correlator dump arrived')
-#
-#         # If period is non-negative, quit if it is not yet time to fire the noise diode
-#         if period < 0.0 or (time.time() - session.last_nd_firing) < period:
-#             return False
-#
+
+        # Hard-code these variables for now until the required sensors are implemented
+        dump_period = session.dump_period = session._requested_dump_period
+        user_logger.warning('Could not read actual dump period - noise diode will be out of sync')
+        user_logger.info('waiting for correlator dump to arrive')
+        last_dump = time.time()
+        user_logger.warning('Could not read last dump timestamp - noise diode will be out of sync')
+
+        # If period is non-negative, quit if it is not yet time to fire the noise diode
+        if period < 0.0 or (time.time() - session.last_nd_firing) < period:
+            return False
+
 #         if align:
 #             # Round "on" duration up to the nearest integer multiple of dump period
 #             on = np.ceil(float(on) / dump_period) * dump_period
@@ -663,11 +695,11 @@ class CaptureSession(CaptureSessionBase):
 #             while next_dump < now + lead_time:
 #                 next_dump += dump_period
 #
-#         if announce:
-#             user_logger.info("Firing '%s' noise diode (%g seconds on, %g seconds off)" % (diode, on, off))
-#         else:
-#             user_logger.info('firing noise diode')
-#
+        if announce:
+            user_logger.info("Firing '%s' noise diode (%g seconds on, %g seconds off)" % (diode, on, off))
+        else:
+            user_logger.info('firing noise diode')
+
 #         if align:
 #             # Schedule noise diode switch-on on all antennas at the next suitable dump boundary
 #             ants.req.rfe3_rfe15_noise_source_on(diode, 1, 1000 * next_dump, 0)
@@ -683,20 +715,31 @@ class CaptureSession(CaptureSessionBase):
 #             # Mark on -> off transition as last firing
 #             session.last_nd_firing = next_dump + on
 #         else:
-#             # Switch noise diode on on all antennas
-#             ants.req.rfe3_rfe15_noise_source_on(diode, 1, 'now', 0)
-#             # If using Data simulator, fire the simulated noise diode for desired period to toggle power levels in output
-#             if hasattr(data.req, 'data_fire_nd'):
-#                 data.req.data_fire_nd(np.ceil(float(on) / dump_period))
-#             time.sleep(on)
-#             # Mark on -> off transition as last firing
-#             session.last_nd_firing = time.time()
-#             # Switch noise diode off on all antennas
-#             ants.req.rfe3_rfe15_noise_source_on(diode, 0, 'now', 0)
-#             time.sleep(off)
-#
-#         user_logger.info('noise diode fired')
-#         return True
+
+        # [Else block]
+        # Switch noise diode on on all antennas
+        on_time = time.time()
+        ants.req.dig_noise_source('now', 1)
+        # Fake the noise diode sensor for now via cam2spead
+        for ant in ants:
+            data.req.set_nd_sensor(product, ant.name, on_time, 1)
+        # If using Data simulator, fire the simulated noise diode for desired period to toggle power levels in output
+        if hasattr(data.req, 'data_fire_nd'):
+            data.req.data_fire_nd(np.ceil(float(on) / dump_period))
+        time.sleep(on)
+
+        # Mark on -> off transition as last firing
+        off_time = time.time()
+        session.last_nd_firing = off_time
+        # Switch noise diode off on all antennas
+        ants.req.dig_noise_source('now', 0)
+        # Fake the noise diode sensor for now via cam2spead
+        for ant in ants:
+            data.req.set_nd_sensor(product, ant.name, off_time, 0)
+        time.sleep(off)
+
+        user_logger.info('noise diode fired')
+        return True
 
     def set_target(self, target):
         """Set target to use for tracking or scanning.
@@ -704,7 +747,8 @@ class CaptureSession(CaptureSessionBase):
         This sets the target on all antennas involved in the session, as well as
         on the CBF (where it serves as delay-tracking centre). It also moves the
         test target in the Data simulator to match the requested target (if it is
-        a stationary 'azel' type).
+        a stationary 'azel' type). The target is only set if it differs from the
+        existing target.
 
         Parameters
         ----------
@@ -719,11 +763,16 @@ class CaptureSession(CaptureSessionBase):
         # Convert description string to target object, or keep object as is
         target = target if isinstance(target, katpoint.Target) else katpoint.Target(target)
 
-        # Set the antenna target (antennas will already move there if in mode 'POINT')
-        ants.req.target(target)
+        for ant in ants:
+            # Don't set the target unnecessarily as this upsets the antenna proxy, causing momentary loss of lock
+            current_target = ant.sensor.target.get_value()
+            if target != current_target:
+                # Set the antenna target (antennas will already move there if in mode 'POINT')
+                ant.req.target(target)
         # Provide target to the data proxy, which will use it as delay-tracking center
-        # XXX No fringe stopping support in data_rts yet
-        # data.req.target(target)
+        current_target = data.sensor.target.get_value()
+        if target != current_target:
+            data.req.target(target)
         # If using Data simulator and target is azel type, move test target here (allows changes in correlation power)
         if hasattr(data.req, 'cbf_test_target') and target.body_type == 'azel':
             azel = katpoint.rad2deg(np.array(target.azel()))
@@ -771,9 +820,10 @@ class CaptureSession(CaptureSessionBase):
             user_logger.warning("Skipping track, as target '%s' will be below horizon" % (target.name,))
             return False
 
-        session.set_target(target)
-
         session.fire_noise_diode(announce=False, **session.nd_params)
+
+        # This already sets antennas in motion if in mode POINT
+        session.set_target(target)
 
         # Avoid slewing if we are already on target
         if not session.on_target(target):
@@ -859,9 +909,10 @@ class CaptureSession(CaptureSessionBase):
             user_logger.warning("Skipping scan, as target '%s' will be below horizon" % (target.name,))
             return False
 
-        session.set_target(target)
-
         session.fire_noise_diode(announce=False, **session.nd_params)
+
+        # This already sets antennas in motion if in mode POINT
+        session.set_target(target)
 
         user_logger.info('slewing to start of %s' % (scan_name,))
         # Move each antenna to the start position of the scan

@@ -42,6 +42,8 @@ def standard_script_options(usage, description):
     parser.add_option('--sb-id-code', type='string',
                       help='Schedule block id code for observation, '
                            'required in order to allocate correct resources')
+    parser.add_option('--project-id',
+                      help='Project ID code for the observation (**required**)')
     parser.add_option('-u', '--experiment-id',
                       help='Experiment ID used to link various parts of '
                       'experiment together (use sb-id-code by default, or random UUID)')
@@ -53,10 +55,6 @@ def standard_script_options(usage, description):
                       help='Centre frequency, in MHz (default=%default)')
     parser.add_option('-r', '--dump-rate', type='float', default=1.0,
                       help='Dump rate, in Hz (default=%default)')
-# This option used to be in observe1, but did not make it to the
-# common set of options of observe1 / observe2
-#    parser.add_option('-w', '--discard-slews', dest='record_slews', action='store_false', default=True,
-#                      help='Do not record all the time, i.e. pause while antennas are slewing to the next target')
     parser.add_option('-n', '--nd-params', default='coupler,10,10,180',
                       help="Noise diode parameters as '<diode>,<on>,<off>,<period>', "
                       "in seconds or 'off' for no noise diode firing (default='%default')")
@@ -71,10 +69,16 @@ def standard_script_options(usage, description):
     parser.add_option('--stow-when-done', action='store_true', default=False,
                       help="Stow the antennas when the capture session ends")
     parser.add_option('--mode',
-                      help="DBE mode to use for experiment, keeps current mode by default)")
+                      help="DBE mode to use for experiment, keeps current mode by default [KAT-7 only]")
     parser.add_option('--dbe-centre-freq', type='float', default=None,
                       help="DBE centre frequency in MHz, used to select coarse band for "
-                           "narrowband modes (unchanged by default)")
+                           "narrowband modes (unchanged by default) [KAT-7 only]")
+    parser.add_option('--product',
+                      help="CBF data product to use for experiment, e.g. 'c856M32k' [MKAT only]")
+    parser.add_option('--reduction-name',
+                      help="Name of script to use in reduction pipeline [MKAT only]")
+    parser.add_option('--reduction-arguments',
+                      help="Arguments for script in reduction pipeline [MKAT only]")
     parser.add_option('--horizon', type='float', default=5.0,
                       help="Session horizon (elevation limit) in degrees (default=%default)")
     parser.add_option('--no-mask', action='store_true', default=False,
@@ -118,6 +122,9 @@ def verify_and_connect(opts):
     # if not hasattr(opts, 'sb_id_code') or opts.sb_id_code is None:
     #    raise ValueError('Please specify the --sb-id-code option '
     #                     '(yes, this is a non-optional option...)')
+    if not hasattr(opts, 'project_id') or opts.project_id is None:
+        raise ValueError('Please specify the project id code via the --project-id option '
+                         '(yes, this is a non-optional option...)')
 
     # For now we force the sb-id-code as the experiment_id as no one is using it
     # This will change in future
