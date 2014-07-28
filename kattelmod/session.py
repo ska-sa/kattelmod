@@ -141,7 +141,8 @@ class CaptureSession(object):
         self.telescope.sleep(seconds)
 
     def get_centre_freq(self, dbe_if=None):
-        
+        # System-specific
+        pass
 
     def set_centre_freq(self, centre_freq):
         pass
@@ -150,34 +151,43 @@ class CaptureSession(object):
                        centre_freq=None, dump_rate=1.0, nd_params=None,
                        stow_when_done=None, horizon=None,
                        dbe_centre_freq=None, no_mask=False, **kwargs):
+        # System-specific
+        pass
         
-
     def capture_start(self):
-        
+        # System-specific
+        pass
 
     def label(self, label):
-        
+        # System-specific
+        pass
 
     def set_target(self, target, component=''):
-        
-        
+        # System-specific
+        pass
+
     target = property()
 
     def on_target(self):
-        
+        # System-specific
+        pass
 
     def target_visible(self, target=None, duration=0., timeout=300.):
-        
+        # System-specific
+        pass
 
     @dynamic_doc("', '".join(PROJECTIONS), DEFAULT_PROJ)
     def set_projection(self, projection='', coordsystem=''):
-        
+        # System-specific
+        pass
 
     def fire_noise_diode(self, diode='coupler', on=10.0, off=10.0, period=0.0,
                          align=True, announce=True):
         pass
 
     def track(self, duration=20.0, announce=True):
+        # System-specific
+        pass
 
     def scan(self, duration=30.0, start=(-3.0, 0.0), end=(3.0, 0.0), index=-1,
              announce=True):
@@ -195,3 +205,5 @@ class CaptureSession(object):
         pass
 
     def end(self, interrupted=False):
+        # System-specific
+        pass
