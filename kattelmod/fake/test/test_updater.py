@@ -3,8 +3,8 @@ import threading
 import logging
 import time
 
-from katsdpscripts.fake.updater import (WarpClock, PeriodicUpdaterThread,
-                                        SingleThreadError)
+from kattelmod.fake.updater import (WarpClock, PeriodicUpdaterThread,
+                                    SingleThreadError)
 
 
 logging.basicConfig(level=logging.DEBUG)
