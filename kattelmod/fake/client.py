@@ -19,13 +19,13 @@ class IgnoreUnknownMethods(object):
 
 class FakeClient(object):
     """Fake KATCP client."""
-    def __init__(self, name, model, telescope, clock):
+    def __init__(self, name, model, config, clock):
         self.name = name
         self.model = object.__new__(model)
         self.req = IgnoreUnknownMethods()
         self.sensor = IgnoreUnknownMethods()
-        attrs = telescope[name]['attrs']
-        sensors = telescope[name]['sensors']
+        attrs = config[name]['attrs']
+        sensors = config[name]['sensors']
         for sensor_args in sensors:
             sensor = FakeSensor(*sensor_args, clock=clock)
             setattr(self.sensor, sensor.name, sensor)

@@ -78,17 +78,17 @@ def load_config(config_file):
 class FakeTelescope(object):
     """Connection object for a simulated KAT system."""
     def __init__(self, config_file, dry_run=False, start_time=None):
-        self._telescope = load_config(config_file)
+        self._config = load_config(config_file)
         self.sensors = IgnoreUnknownMethods()
         self._clock = WarpClock(start_time, dry_run)
         self._clients = []
         groups = {}
-        for comp_name, component in self._telescope.items():
+        for comp_name, component in self._config.items():
             if component['class'] == 'Group':
                 groups[comp_name] = component['attrs']['members']
                 continue
             model = vars(models).get(component['class'] + 'Model')
-            client = FakeClient(comp_name, model, self._telescope, self._clock)
+            client = FakeClient(comp_name, model, self._config, self._clock)
             setattr(self, comp_name, client)
             self._clients.append(client)
             # Add component sensors to the top-level sensors group
