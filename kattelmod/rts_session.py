@@ -235,7 +235,9 @@ class CaptureSession(CaptureSessionBase):
             # # XXX last dump timestamp?
             # self._end_of_previous_session = data.sensor.k7w_last_dump_timestamp.get_value()
 
+            # Prep capturing system and activate metadata stream before script log output
             data.req.product_configure(product, dump_rate, timeout=330)
+            data.req.capture_init(product)
 
             # Enable logging to the new HDF5 file via the usual logger (using same formatting and filtering)
             self._script_log_handler = ScriptLogHandler(data, product)
@@ -398,9 +400,6 @@ class CaptureSession(CaptureSessionBase):
         session.nd_params = nd_params = session.nd_params if nd_params is None else nd_params
         session.stow_when_done = stow_when_done = session.stow_when_done if stow_when_done is None else stow_when_done
         session.horizon = session.horizon if horizon is None else horizon
-
-        # Prep capturing system
-        data.req.capture_init(self.product)
 
         # Setup strategies for the sensors we might be wait()ing on
         ants.req.sensor_sampling('lock', 'event')
