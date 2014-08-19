@@ -236,7 +236,7 @@ class CaptureSession(CaptureSessionBase):
             # self._end_of_previous_session = data.sensor.k7w_last_dump_timestamp.get_value()
 
             # Prep capturing system and activate metadata stream before script log output
-            data.req.product_configure(product, dump_rate, timeout=330)
+            data.req.product_configure(product, dump_rate, timeout=120)
             data.req.capture_init(product)
 
             # Enable logging to the new HDF5 file via the usual logger (using same formatting and filtering)
