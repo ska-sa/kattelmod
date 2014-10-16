@@ -10,6 +10,9 @@ build
 .coverage
 .tox
 nosetests.xml
+.noseids
+
 
 # Developer tools
+.ropeproject
 *~
