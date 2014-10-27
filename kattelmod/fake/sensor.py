@@ -1,33 +1,43 @@
 import time
+from collections import namedtuple
 
 from katpoint import is_iterable
 from katcp import Sensor
 from katcp.sampling import SampleStrategy
-from katcp.katcp_resource import KATCPSensor, escape_name, normalize_strategy_parameters
+from katcp.resource import KATCPSensor, escape_name, normalize_strategy_parameters
 
-class SensorUpdate(object):
-    """"""
-    def __init__(self, update_seconds, value_seconds, status, value):
-        self.update_seconds = update_seconds
-        self.value_seconds = value_seconds
-        self.status = status
-        self.value = value
+
+class SensorUpdate(namedtuple('SensorUpdate', 'update_seconds value_seconds '
+                                              'status value')):
+    """Sensor update record.
+
+    Attributes
+    ----------
+    update_seconds : float
+        Timestamp when sensor update has been received by observer
+    value_seconds : float
+        Timestamp at which the sensor value was determined
+    status : string
+        Sensor status
+    value : object
+        Sensor value with native sensor type
+
+    """
 
 class FakeSensor(KATCPSensor):
     """Fake sensor."""
     def __init__(self, name, sensor_type, description, units='', params=None, clock=time):
+        super(FakeSensor, self).__init__()
         self.name = name
         sensor_type = Sensor.parse_type(sensor_type)
         params = str(params).split(' ') if params else None
         self._sensor = Sensor(sensor_type, name, description, units, params)
         self.__doc__ = self.description = description
         self._clock = clock
-        self._listeners = set()
         self._last_update = SensorUpdate(0.0, 0.0, 'unknown', None)
         self._strategy = None
         self._next_period = None
         self.set_strategy('none')
-        self._init()
 
     @property
     def value(self):
@@ -70,4 +80,3 @@ class FakeSensor(KATCPSensor):
     def update(self, timestamp):
         while self._next_period and timestamp >= self._next_period:
             self._next_period = self._strategy.periodic(self._next_period)
-
