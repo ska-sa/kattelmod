@@ -40,7 +40,7 @@ projections.insert(0, default_proj)
 
 
 def ant_array(kat, ants, name='ants'):
-    """Create sub-array of antennas from flexible specification.
+    """Create an array of antennas from flexible specification.
 
     Parameters
     ----------
@@ -272,7 +272,7 @@ class CaptureSession(CaptureSessionBase):
         except Exception, e:
             msg = 'CaptureSession failed to initialise (%s)' % (e,)
             user_logger.error(msg)
-            activity_logger.info(msg)
+            activity_logger.error(msg)
             if hasattr(self, '_script_log_handler'):
                 user_logger.removeHandler(self._script_log_handler)
             raise
@@ -337,7 +337,7 @@ class CaptureSession(CaptureSessionBase):
         It should usually be called as the first step in a new session
         (unless the experiment has special requirements, such as holography).
 
-        The user selects a subarray of antennas that will take part in the
+        The user selects a subset of antennas that will take part in the
         experiment, identifies him/herself and describes the experiment.
         Optionally, the user may also set the RF centre frequency, dump rate
         and noise diode firing strategy, amongst others. All optional settings
@@ -498,7 +498,7 @@ class CaptureSession(CaptureSessionBase):
     def on_target(self, target):
         """Determine whether antennas are tracking a given target.
 
-        If all connected antennas in the sub-array participating in the session
+        If all connected antennas in the array participating in the session
         have the given *target* as target and are locked in mode 'POINT', we
         conclude that the array is on target.
 
