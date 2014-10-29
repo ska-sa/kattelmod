@@ -78,8 +78,6 @@ class FakeClient(object):
 
     def update(self, timestamp):
         self.model.update(timestamp)
-        for sensor in vars(self.sensor).values():
-            sensor.update(timestamp)
 
     def is_connected(self):
         return True
