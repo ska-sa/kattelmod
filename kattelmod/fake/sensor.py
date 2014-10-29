@@ -64,10 +64,11 @@ class FakeSensor(KATCPSensor):
 
     def set_strategy(self, strategy, params=None):
         """Set sensor strategy."""
-        def inform_callback(sensor_name, timestamp_str, status_str, value_str):
+        def inform_callback(sensor, reading):
             """Inform callback for sensor strategy."""
-            self._update_value(float(timestamp_str), status_str, value_str)
-            print sensor_name, timestamp_str, status_str, value_str
+            timestamp_str, status_str, value_str = sensor.format_reading(reading)
+            self._update_value(reading.timestamp, status_str, value_str)
+            print sensor.name, timestamp_str, status_str, value_str
 
         if self._strategy:
             self._strategy.detach()
