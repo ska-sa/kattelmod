@@ -6,6 +6,7 @@ import numpy as np
 from katpoint import Catalogue
 from katcp import DeviceServer
 from katcp.kattypes import return_reply, Str
+from katcp.ioloop_manager import IOLoopManager
 
 from kattelmod.fake.updater import WarpClock, PeriodicUpdaterThread
 from kattelmod.fake.sensor import FakeSensor
@@ -103,6 +104,10 @@ class FakeTelescope(object):
             setattr(self, group_name, group)
         self.updater = PeriodicUpdaterThread(self._clients, self._clock, period=0.1)
         self.updater.start()
+
+        self._ioloop_manager = IOLoopManager()
+        self.ioloop = self._ioloop_manager.get_ioloop()
+        self._ioloop_manager.start(timeout=1.0)
 
     def __del__(self):
         """Before deleting object, stop the system (this might not get called!)."""
