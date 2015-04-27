@@ -161,7 +161,7 @@ def verify_and_connect(opts):
             choice = raw_input(colors.Red + "Do you want to cancel this build? y/n ...." + colors.Normal)
             if choice not in ['n', 'N']:
                 raise ValueError("Cancelled build of KATCoreConn object connection for site=%s system=%s" % (site, system))
-            kat = tbuild(system=system, conn_clients='all', controlled_clients='all')
+            kat = tbuild(conn_clients='all', controlled_clients='all')
         user_logger.info("Using KAT connection with configuration=%s "
                          "sb_id_code=%s\nControlled objects: %s" %
                          (kat.system, opts.sb_id_code, kat.controlled_objects))
