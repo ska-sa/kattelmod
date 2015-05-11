@@ -314,7 +314,7 @@ class CaptureSession(CaptureSessionBase):
             Actual centre frequency in MHz (or NaN if something went wrong)
 
         """
-        return self.data.sensor.delay_center_frequency.get_value() / 1e6
+        return self.data.sensor.delay_centre_frequency.get_value() / 1e6
 
     def set_centre_freq(self, centre_freq):
         """Set RF (sky) frequency associated with middle CBF channel.
