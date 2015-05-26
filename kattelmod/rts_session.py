@@ -761,11 +761,11 @@ class CaptureSession(CaptureSessionBase):
             current_target = ant.sensor.target.get_value()
             if target != current_target:
                 # Set the antenna target (antennas will already move there if in mode 'POINT')
-                ant.req.target(target)
+                ant.req.target(target.description)
         # Provide target to the data proxy, which will use it as delay-tracking center
         current_target = data.sensor.target.get_value()
         if target != current_target:
-            data.req.target(target)
+            data.req.target(target.description)
         # If using Data simulator and target is azel type, move test target here (allows changes in correlation power)
         if hasattr(data.req, 'cbf_test_target') and target.body_type == 'azel':
             azel = katpoint.rad2deg(np.array(target.azel()))

@@ -775,11 +775,11 @@ class CaptureSession(CaptureSessionBase):
             current_target = ant.sensor.target.get_value()
             if target != current_target:
                 # Set the antenna target (antennas will already move there if in mode 'POINT')
-                ant.req.target(target)
+                ant.req.target(target.description)
         # Provide target to the DBE proxy, which will use it as delay-tracking center
         current_target = dbe.sensor.target.get_value()
         if target != current_target:
-            dbe.req.target(target)
+            dbe.req.target(target.description)
         # If using DBE simulator and target is azel type, move test target here (allows changes in correlation power)
         if hasattr(dbe.req, 'dbe_test_target') and target.body_type == 'azel':
             azel = katpoint.rad2deg(np.array(target.azel()))
