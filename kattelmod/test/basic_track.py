@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # Track target(s) for a specified time.
 
 from kattelmod import CaptureSession
