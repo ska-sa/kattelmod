@@ -14,4 +14,10 @@ class TestBasicTrack(unittest.TestCase):
     def test_run_script(self):
         script = os.path.join(testpath, 'basic_track.py')
         cmd = '/usr/bin/env python {} --help'.format(script)
-        subprocess.check_call(shlex.split(cmd))
+#        subprocess.check_call(shlex.split(cmd))
+        process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        print stdout
+        print stderr
+        self.assertEqual(process.returncode, 0)
