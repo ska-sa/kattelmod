@@ -34,7 +34,7 @@ class CaptureSession(object):
 
     def connect(self, args):
         if self.targets:
-            self.targets = self.collect_targets(self.targets)
+            self.targets = self.collect_targets(args.targets)
         return self
 
     @property
