@@ -1,30 +1,56 @@
+from functools import wraps
+import inspect
+
 from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
                       construct_azel_target)
 
 
-class FakeModel(object):
+def auto_assign_parameters(func):
+    """Automatically assigns all parameters to object attributes.
+
+    Adapted from http://stackoverflow.com/questions/1389180.
+
+    >>> class process:
+    ...     @auto_assign_parameters
+    ...     def __init__(self, cmd, reachable=False, user='root'):
+    ...         pass
+    >>> p = process('halt', True)
+    >>> p.cmd, p.reachable, p.user
+    ('halt', True, 'root')
+
+    """
+    names, varargs, keywords, defaults = inspect.getargspec(func)
+    # Pass through name + docstring + argument list of original function
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Set explicit args and kwargs
+        for name, arg in list(zip(names[1:], args)) + list(kwargs.items()):
+            setattr(self, name, arg)
+        # Set implicit kwargs with default values
+        if defaults:
+            for name, default in zip(reversed(names), reversed(defaults)):
+                if not hasattr(self, name):
+                    setattr(self, name, default)
+        func(self, *args, **kwargs)
+    return wrapper
+
+
+class Component(object):
     def update(self, timestamp):
         pass
 
+        
 
-class AntennaPositionerModel(FakeModel):
-    def __init__(self, description, real_az_min_deg, real_az_max_deg,
-                 real_el_min_deg, real_el_max_deg, max_slew_azim_dps,
-                 max_slew_elev_dps, inner_threshold_deg, **kwargs):
-        self.observer = description
-        self.ant = Antenna(description)
+class AntennaPositioner(Component):
+    @auto_assign_parameters
+    def __init__(self, observer='', real_az_min_deg=-185, real_az_max_deg=275,
+                 real_el_min_deg=15, real_el_max_deg=92, max_slew_azim_dps=2.0,
+                 max_slew_elev_dps=1.0, inner_threshold_deg=0.01):
         self.mode = 'STOP'
-        self.req_target('')
+#        self.req_target('')
         self.activity = 'stop'
-        self.lock_threshold = inner_threshold_deg
         self.pos_actual_scan_azim = self.pos_request_scan_azim = 0.0
         self.pos_actual_scan_elev = self.pos_request_scan_elev = 90.0
-        self.real_az_min_deg = real_az_min_deg
-        self.real_az_max_deg = real_az_max_deg
-        self.real_el_min_deg = real_el_min_deg
-        self.real_el_max_deg = real_el_max_deg
-        self.max_slew_azim_dps = max_slew_azim_dps
-        self.max_slew_elev_dps = max_slew_elev_dps
         self._last_update = 0.0
 
     def req_target(self, target):
@@ -93,7 +119,7 @@ class AntennaPositionerModel(FakeModel):
 #        print 'elapsed: %g, max_daz: %g, max_del: %g, daz: %g, del: %g, error: %g' % (elapsed_time, max_delta_az, max_delta_el, delta_az, delta_el, error)
 
 
-class CorrelatorBeamformerModel(FakeModel):
+class CorrelatorBeamformer(Component):
     def __init__(self, n_chans, n_accs, n_bls, bls_ordering, bandwidth,
                  sync_time, int_time, scale_factor_timestamp, ref_ant, **kwargs):
         self.dbe_mode = 'c8n856M32k'
@@ -107,7 +133,7 @@ class CorrelatorBeamformerModel(FakeModel):
         self._target.antenna = self.ref_ant
 
 
-class EnviroModel(FakeModel):
+class Environment(Component):
     def __init__(self, **kwargs):
         self.air_pressure = 1020
         self.air_relative_humidity = 60.0
@@ -116,12 +142,12 @@ class EnviroModel(FakeModel):
         self.wind_direction = 90.0
 
 
-class DigitiserModel(FakeModel):
+class Digitiser(Component):
     def __init__(self, **kwargs):
         self.overflow = False
 
 
-class ObservationModel(FakeModel):
+class Observation(Component):
     def __init__(self, **kwargs):
         self.label = ''
         self.params = ''
