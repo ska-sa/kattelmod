@@ -15,10 +15,6 @@ class Component(object):
             sensor_name = "{}_{}".format(self.name, attr_name)
             print "telstate", sensor_name, value
 #            self._telstate.add(sensor_name, value)
-        if attr_name in self._aggregates:
-            for parent, rule, children in self._aggregates[attr_name]:
-                child_values = [getattr(self, c) for c in children]
-                setattr(self, parent, rule(*child_values))
 
     def update(self, timestamp):
         pass
@@ -46,7 +42,6 @@ class AntennaPositioner(Component):
                  inner_threshold_deg=0.01):
         # Simplistically assign all parameters to corresponding attributes
         initialise_attributes(self, locals())
-        self._mode = 'STOP'
         self.activity = 'stop'
         self.target = ''
         self.pos_actual_scan_azim = self.pos_request_scan_azim = 0.0
@@ -66,36 +61,17 @@ class AntennaPositioner(Component):
     @target.setter
     def target(self, target):
         self._target = Target(target) if target else None
-        self._lock = False
-        self._scan_status = 'none'
-        if not self._target and self._mode in ('POINT', 'SCAN'):
-            self._mode = 'STOP'
-
-    def _aggregate_activity(self, _mode, _scan_status, _lock):
-        if _mode in ('ERROR', 'STOW', 'STOP'):
-            return _mode.lower()
-        elif _mode in ('POINT', 'SCAN'):
-            if _scan_status == 'ready':
-                return 'scan_ready'
-            elif _scan_status == 'during':
-                return 'scan'
-            elif _scan_status == 'after':
-                return 'scan_complete'
-            elif _lock:
-                return 'track'
-            else:
-                return 'slew'
-        else:
-            return 'unknown'
+        if self.activity in ('scan', 'track', 'slew'):
+            self.activity = 'slew' if self._target else 'stop'
 
     def update(self, timestamp):
         elapsed_time = timestamp - self._last_update if self._last_update else 0.0
         self._last_update = timestamp
-        if self._mode not in ('POINT', 'SCAN', 'STOW'):
+        if self.activity in ('error', 'stop'):
             return
         az, el = self.pos_actual_scan_azim, self.pos_actual_scan_elev
         target = construct_azel_target(deg2rad(az), deg2rad(90.0)) \
-                 if self._mode == 'STOW' else self.target
+                 if self.activity == 'stow' else self.target
         if not target:
             return
         requested_az, requested_el = target.azel(timestamp, self.observer)
@@ -114,7 +90,11 @@ class AntennaPositioner(Component):
         # Check angular separation to determine lock
         dish = construct_azel_target(deg2rad(az), deg2rad(el))
         error = rad2deg(target.separation(dish, timestamp, self.observer))
-        self._lock = error < self.inner_threshold_deg
+        lock = error < self.inner_threshold_deg
+        if lock and self.activity == 'slew':
+            self.activity = 'track'
+        elif not lock and self.activity == 'track':
+            self.activity = 'slew'
         # Update position sensors
         self.pos_request_scan_azim = requested_az
         self.pos_request_scan_elev = requested_el
