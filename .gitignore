@@ -12,8 +12,9 @@ build
 nosetests.xml
 .noseids
 
-
 # Developer tools
 .ropeproject
 *~
+
+# OS X cruft
 *.DS_Store
