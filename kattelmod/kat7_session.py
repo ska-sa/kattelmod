@@ -25,8 +25,6 @@ import katpoint
 # This is used to document available spherical projections (and set them in case of TimeSession)
 from katcorelib.targets import Offset
 
-from .array import Array
-from .katcp_client import KATClient
 from .defaults import user_logger, activity_logger
 from katmisc.utils.utils import dynamic_doc
 
@@ -36,47 +34,6 @@ projections, default_proj = Offset.PROJECTIONS.keys(), Offset.DEFAULT_PROJECTION
 # Move default projection to front of list
 projections.remove(default_proj)
 projections.insert(0, default_proj)
-
-
-def ant_array(kat, ants, name='ants'):
-    """Create an array of antennas from flexible specification.
-
-    Parameters
-    ----------
-    kat : :class:`utility.KATCoreConn` object
-        KAT connection object
-    ants : :class:`Array` or :class:`KATClient` object, or list, or string
-        Antennas specified by an Array object containing antenna devices, or
-        a single antenna device or a list of antenna devices, or a string of
-        comma-separated antenna names, or the string 'all' for all antennas
-        controlled via the KAT connection associated with this session
-
-    Returns
-    -------
-    array : :class:`Array` object
-        Array object containing selected antenna devices
-
-    Raises
-    ------
-    ValueError
-        If antenna with a specified name is not found on KAT connection object
-
-    """
-    if isinstance(ants, Array):
-        return ants
-    elif isinstance(ants, KATClient):
-        return Array(name, [ants])
-    elif isinstance(ants, basestring):
-        if ants.strip() == 'all':
-            return kat.ants
-        else:
-            try:
-                return Array(name, [getattr(kat, ant.strip()) for ant in ants.split(',')])
-            except AttributeError:
-                raise ValueError("Antenna '%s' not found (i.e. no kat.%s exists)" % (ant, ant))
-    else:
-        # The default assumes that *ants* is a list of antenna devices
-        return Array(name, ants)
 
 
 def report_compact_traceback(tb):
@@ -96,23 +53,31 @@ class ScriptLogHandler(logging.Handler):
 
     Parameters
     ----------
-    dbe : :class:`KATClient` object
+    dbe : :class:`KATCPResourceClient` object
         DBE proxy device for the session
 
     """
     def __init__(self, dbe):
         logging.Handler.__init__(self)
         self.dbe = dbe
+        self.busy_emitting = False
 
     def emit(self, record):
         """Emit a logging record."""
+        # Do not emit from within emit()
+        # This occurs when the script_log command fails and logs an error itself
+        if self.busy_emitting:
+            return
         try:
+            self.busy_emitting = True
             msg = self.format(record)
             self.dbe.req.k7w_script_log(msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
             self.handleError(record)
+        finally:
+            self.busy_emitting = False
 
 
 class RequestSensorError(Exception):
@@ -168,7 +133,7 @@ class CaptureSession(CaptureSessionBase):
         try:
             self.kat = kat
             # If not a device itself, assume dbe is the name of the device
-            dbe, katsys = kat.dbe7, kat.sys
+            dbe, katsys = kat.data, kat.sys
             if not dbe.is_connected():
                 raise ValueError("DBE proxy '%s' is not connected "
                                  "(is the KAT system running?)" % (dbe.name,))
@@ -354,7 +319,7 @@ class CaptureSession(CaptureSessionBase):
 
         Parameters
         ----------
-        ants : :class:`Array` or :class:`KATClient` object, or list, or string
+        ants : :class:`Array` or :class:`KATCPResourceClient` object, or list, or string
             Antennas that will participate in the capturing session, as an Array
             object containing antenna devices, or a single antenna device or a
             list of antenna devices, or a string of comma-separated antenna
@@ -402,7 +367,7 @@ class CaptureSession(CaptureSessionBase):
         # Create references to allow easy copy-and-pasting from this function
         session, kat, dbe, katsys = self, self.kat, self.dbe, self.kat.sys
 
-        session.ants = ants = ant_array(kat, self.get_ant_names())
+        session.ants = ants = kat.ants
         ant_names = [ant.name for ant in ants]
         # Override provided session parameters (or initialize them from existing parameters if not provided)
         session.experiment_id = experiment_id = session.experiment_id if experiment_id is None else experiment_id
@@ -428,11 +393,11 @@ class CaptureSession(CaptureSessionBase):
             dbe_centre_freq = np.nan
 
         # Setup strategies for the sensors we might be wait()ing on
-        ants.req.sensor_sampling('lock', 'event')
-        ants.req.sensor_sampling('scan.status', 'event')
-        ants.req.sensor_sampling('mode', 'event')
-        dbe.req.sensor_sampling('k7w.spead_dump_period', 'event')
-        dbe.req.sensor_sampling('k7w.last_dump_timestamp', 'event')
+        ants.set_sampling_strategy('lock', 'event')
+        ants.set_sampling_strategy('scan.status', 'event')
+        ants.set_sampling_strategy('mode', 'event')
+        dbe.set_sampling_strategy('k7w.spead_dump_period', 'event')
+        dbe.set_sampling_strategy('k7w.last_dump_timestamp', 'event')
 
         # Set centre frequency in RFE stage 7 (else read the current value)
         if centre_freq is not None:
@@ -670,7 +635,9 @@ class CaptureSession(CaptureSessionBase):
 
         # Wait for the dump period to become known, as it is needed to set a good timeout for the first dump
         if dump_period == 0.0:
-            if not dbe.wait('k7w_spead_dump_period', lambda sensor: sensor.value > 0, timeout=1.5 * session._requested_dump_period, poll_period=0.2 * session._requested_dump_period):
+            if not dbe.wait('k7w_spead_dump_period', lambda sensor: sensor.value > 0,
+                            timeout=1.5 * session._requested_dump_period,
+                            poll_period=0.2 * session._requested_dump_period):
                 dump_period = session.dump_period = session._requested_dump_period
                 user_logger.warning('SPEAD metadata header is overdue at k7_capture - noise diode will be out of sync')
             else:
@@ -845,7 +812,7 @@ class CaptureSession(CaptureSessionBase):
             # Start moving each antenna to the target
             ants.req.mode('POINT')
             # Wait until they are all in position (with 5 minute timeout)
-            ants.wait('lock', True, 300)
+            ants.wait('lock', True, timeout=300)
             user_logger.info('target reached')
 
             session.fire_noise_diode(announce=False, **session.nd_params)
@@ -943,7 +910,7 @@ class CaptureSession(CaptureSessionBase):
         ants.req.scan_asym(start[0], start[1], end[0], end[1], duration, projection)
         ants.req.mode('POINT')
         # Wait until they are all in position (with 5 minute timeout)
-        ants.wait('lock', True, 300)
+        ants.wait('lock', True, timeout=300)
         user_logger.info('start of %s reached' % (scan_name,))
 
         session.fire_noise_diode(announce=False, **session.nd_params)
@@ -952,7 +919,7 @@ class CaptureSession(CaptureSessionBase):
         # Start scanning the antennas
         ants.req.mode('SCAN')
         # Wait until they are all finished scanning (with 5 minute timeout)
-        ants.wait('scan_status', 'after', 300)
+        ants.wait('scan_status', 'after', timeout=300)
         user_logger.info('%s complete' % (scan_name,))
 
         session.fire_noise_diode(announce=False, **session.nd_params)
@@ -1114,7 +1081,7 @@ class TimeSession(CaptureSessionBase):
     """Fake CaptureSession object used to estimate the duration of an experiment."""
     def __init__(self, kat, mode=None, **kwargs):
         self.kat = kat
-        self.dbe = kat.dbe7
+        self.dbe = kat.data
 
         # Default settings for session parameters (in case standard_setup is not called)
         self.ants = None
@@ -1256,7 +1223,7 @@ class TimeSession(CaptureSessionBase):
                        record_slews=None, stow_when_done=None, horizon=None,
                        dbe_centre_freq=None, **kwargs):
         """Perform basic experimental setup including antennas, LO and dump rate."""
-        self.ants = ant_array(self.kat, self.get_ant_names())
+        self.ants = self.kat.ants
         for ant in self.ants:
             try:
                 self._fake_ants.append((katpoint.Antenna(ant.sensor.observer.get_value()),

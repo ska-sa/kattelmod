@@ -1,4 +1,4 @@
-##############################################################################
+###############################################################################
 # SKA South Africa (http://ska.ac.za/)                                        #
 # Author: cam@ska.ac.za                                                       #
 # Copyright @ 2013 SKA SA. All rights reserved.                               #
@@ -6,10 +6,10 @@
 # THIS SOFTWARE MAY NOT BE COPIED OR DISTRIBUTED IN ANY FORM WITHOUT THE      #
 # WRITTEN PERMISSION OF SKA SA.                                               #
 ###############################################################################
-"""CaptureSession encompassing data capturing and standard observations with RTS.
+"""CaptureSession encompassing data capturing and standard observations with MeerKAT.
 
 This defines the :class:`CaptureSession` class, which encompasses the capturing
-of data and the performance of standard scans with the RTS system. It also
+of data and the performance of standard scans with the MeerKAT system. It also
 provides a fake :class:`TimeSession` class, which goes through the motions in
 order to time them, but without performing any real actions.
 
@@ -54,15 +54,15 @@ class ScriptLogHandler(logging.Handler):
 
     Parameters
     ----------
-    data : :class:`KATCPResourceClient` object
-        Data proxy device for the session
+    stream : :class:`KATCPResourceClient` object
+        Metadata stream for the session
     product : string
         Name of data product
 
     """
-    def __init__(self, data, product):
+    def __init__(self, stream, product):
         logging.Handler.__init__(self)
-        self.data = data
+        self.stream = stream
         self.product = product
         self.busy_emitting = False
 
@@ -75,7 +75,7 @@ class ScriptLogHandler(logging.Handler):
         try:
             self.busy_emitting = True
             msg = self.format(record)
-            self.data.req.script_log(self.product, msg)
+            self.stream.req.script_log(self.product, msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -89,15 +89,15 @@ class ObsParams(collections.MutableMapping):
 
     Parameters
     ----------
-    data : :class:`KATCPResourceClient` object
-        Data proxy device for the session
+    stream : :class:`KATCPResourceClient` object
+        Katstream for the session
     product : string
         Name of data product
 
     """
-    def __init__(self, data, product):
+    def __init__(self, stream, product):
         self._dict = dict()
-        self.data = data
+        self.stream = stream
         self.product = product
 
     def __getitem__(self, key):
@@ -105,11 +105,11 @@ class ObsParams(collections.MutableMapping):
 
     def __setitem__(self, key, value):
         """Set item both in dictionary and SPEAD stream."""
-        self.data.req.set_obs_param(self.product, key, repr(value))
+        self.stream.req.set_obs_param(self.product, key, repr(value))
         self._dict[key] = value
 
     def __delitem__(self, key):
-        self.data.req.set_obs_param(self.product, key, repr(None))
+        self.stream.req.set_obs_param(self.product, key, repr(None))
         del self._dict[key]
 
     def __iter__(self):
@@ -177,14 +177,16 @@ class CaptureSession(CaptureSessionBase):
     def __init__(self, kat, product=None, dump_rate=1.0, **kwargs):
         try:
             self.kat = kat
-            # Hard-code the RTS data proxy for now
-            data, katsys = kat.data, kat.sys
+            # Hard-code the FIRST MeerKAT data proxy for now
+            data, katsys, stream = kat.data, kat.sys, kat.stream
             if not data.is_connected():
                 raise ValueError("Data proxy '%s' is not connected "
                                  "(is the KAT system running?)" % (data.name,))
-            self.data = self.dbe = data
-            # XXX Hard-code product name for now
-            self.product = product = 'c856M4k' if product is None else product
+            self.data = data
+            self.stream = stream
+            # Get product from subarray if not supplied
+            use_default_product = not product
+            self.product = product = kat.sub.sensor.product.get_value() if use_default_product else product
 
             # Default settings for session parameters (in case standard_setup is not called)
             self.ants = None
@@ -200,22 +202,30 @@ class CaptureSession(CaptureSessionBase):
             # # XXX last dump timestamp?
             # self._end_of_previous_session = data.sensor.k7w_last_dump_timestamp.get_value()
 
-            # Prep capturing system and activate metadata stream before script log output
-            ####data.req.product_configure(product, dump_rate, timeout=60)
-            data.req.capture_init(product, timeout=30)
-
             # Enable logging to the new HDF5 file via the usual logger (using same formatting and filtering)
-            self._script_log_handler = ScriptLogHandler(data, product)
+            self._script_log_handler = ScriptLogHandler(stream, product)
             if len(user_logger.handlers) > 0:
                 self._script_log_handler.setLevel(user_logger.handlers[0].level)
                 self._script_log_handler.setFormatter(user_logger.handlers[0].formatter)
             user_logger.addHandler(self._script_log_handler)
 
+            # Prep capturing system and activate metadata stream before script log output
+            #####data.req.product_configure(product, dump_rate, timeout=60)
+            reply = data.req.capture_init(product, timeout=15)
+            if not reply.succeeded:
+                user_logger.error("data.req.capture_init failed - (%s)" % reply.messages[0].arguments)
+            reply = stream.req.stream_start(product, timeout=15)
+            if not reply.succeeded:
+                user_logger.error("stream.req.stream_start failed - (%s)" % reply.messages[0].arguments)
+
             user_logger.info('==========================')
             user_logger.info('New data capturing session')
             user_logger.info('--------------------------')
             user_logger.info('Data proxy used = %s' % (data.name,))
-            user_logger.info('Data product = %s' % (product,))
+            user_logger.info('Data product = %s (%s)' % (product,
+                             'per subarray'
+                             if use_default_product
+                             else 'PRODUCT OVERRIDE!!!'))
 
             # XXX file name? SB ID? Program block ID? -> [file via capture_done]
             # # Obtain the name of the file currently being written to
@@ -228,7 +238,7 @@ class CaptureSession(CaptureSessionBase):
             activity_logger.info("----- Script starting %s (%s). Output file %s" % (sys.argv[0], ' '.join(sys.argv[1:]), outfile))
 
             # Log details of the script to the back-end
-            self.obs_params = ObsParams(data, product)
+            self.obs_params = ObsParams(stream, product)
             katsys.req.set_script_param('script-starttime', time.time())
             katsys.req.set_script_param('script-endtime', '')
             katsys.req.set_script_param('script-name', sys.argv[0])
@@ -279,7 +289,7 @@ class CaptureSession(CaptureSessionBase):
             Actual centre frequency in MHz (or NaN if something went wrong)
 
         """
-        return self.data.sensor.delay_center_frequency.get_value() / 1e6
+        return self.data.sensor.delay_centre_frequency.get_value() / 1e6
 
     def set_centre_freq(self, centre_freq):
         """Set RF (sky) frequency associated with middle CBF channel.
@@ -292,7 +302,7 @@ class CaptureSession(CaptureSessionBase):
         """
         # This currently only sets the delay compensation reference frequency
         # XXX Hopefully this will also change downconversion frequency in future
-        self.data.req.set_center_frequency(centre_freq * 1e6)
+        self.data.req.set_centre_frequency(centre_freq * 1e6)
 
     def standard_setup(self, observer, description, experiment_id=None, centre_freq=None,
                        nd_params=None, stow_when_done=None, horizon=None, **kwargs):
@@ -369,9 +379,9 @@ class CaptureSession(CaptureSessionBase):
         session.horizon = session.horizon if horizon is None else horizon
 
         # Setup strategies for the sensors we might be wait()ing on
-        ants.set_sampling_strategy('lock', 'event')
-        ants.set_sampling_strategy('scan.status', 'event')
-        ants.set_sampling_strategy('mode', 'event')
+        ants.set_sampling_strategies('^lock$', 'event')
+        ants.set_sampling_strategies('^scan.status$', 'event')
+        ants.set_sampling_strategies('^mode$', 'event')
         # XXX can we still get these sensors somewhere?
         # data.set_sampling_strategy('k7w.spead_dump_period', 'event')
         # data.set_sampling_strategy('k7w.last_dump_timestamp', 'event')
@@ -456,7 +466,7 @@ class CaptureSession(CaptureSessionBase):
 
         """
         if label:
-            self.data.req.set_obs_label(self.product, label)
+            self.stream.req.set_obs_label(self.product, label)
             user_logger.info("New compound scan: '%s'" % (label,))
 
     def on_target(self, target):
@@ -570,7 +580,7 @@ class CaptureSession(CaptureSessionBase):
             Noise diode source to use (pin diode is situated in feed horn and
             produces high-level signal, while coupler diode couples into
             electronics after the feed at a much lower level)
-            [ignored for RTS]
+            [ignored for MeerKAT]
         on : float, optional
             Minimum duration for which diode is switched on, in seconds
         off : float, optional
@@ -583,7 +593,7 @@ class CaptureSession(CaptureSessionBase):
         align : {True, False}, optional
             True if noise diode transitions should be aligned with correlator
             dump boundaries, or False if they should happen as soon as possible
-            [ignored for RTS for now]
+            [ignored for MeerKAT for now]
         announce : {True, False}, optional
             True if start of action should be announced, with details of settings
 
@@ -639,10 +649,10 @@ class CaptureSession(CaptureSessionBase):
 
         # Hard-code these variables for now until the required sensors are implemented
         dump_period = session.dump_period = session._requested_dump_period
-#        user_logger.warning('Could not read actual dump period - noise diode will be out of sync')
+        user_logger.warning('Could not read actual dump period - noise diode will be out of sync')
         user_logger.info('waiting for correlator dump to arrive')
         last_dump = time.time()
-#        user_logger.warning('Could not read last dump timestamp - noise diode will be out of sync')
+        user_logger.warning('Could not read last dump timestamp - noise diode will be out of sync')
 
         # If period is non-negative, quit if it is not yet time to fire the noise diode
         if period < 0.0 or (time.time() - session.last_nd_firing) < period:
@@ -1009,7 +1019,7 @@ class CaptureSession(CaptureSessionBase):
         """
         try:
             # Create references to allow easy copy-and-pasting from this function
-            session, ants, data, katsys = self, self.ants, self.data, self.kat.sys
+            session, ants, data, katsys, stream = self, self.ants, self.data, self.kat.sys, self.stream
 
             # XXX still relevant? -> via [capture_done]
             # # Obtain the name of the file currently being written to
@@ -1039,10 +1049,10 @@ class CaptureSession(CaptureSessionBase):
         finally:
             # Disable logging to HDF5 file
             user_logger.removeHandler(self._script_log_handler)
+            # Stop streaming KATCP sensor updates to the capture thread
+            stream.req.stream_stop(self.product)
             # Finally close the HDF5 file and prepare for augmentation after all logging and parameter settings are done
             data.req.capture_done(self.product)
-            # For RTS, also explicitly stop the SP ingest to avoid the potential for multiple conflicting ingests
-            data.req.spmc_data_product_configure('rts_' + self.product, '')
             activity_logger.info("----- Script ended  %s (%s)" % (sys.argv[0], ' '.join(sys.argv[1:])))
 
 
