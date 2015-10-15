@@ -1,1 +1,1 @@
-from kattelmod.session2 import CaptureSession
+from kattelmod.session import CaptureSession
