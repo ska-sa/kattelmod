@@ -16,6 +16,6 @@ args = parser.parse_args()
 # Start capture session, which creates HDF5 file
 with session.connect(args):
     # Iterate through source list, picking the next one that is up
-    for target in session.targets_up:
+    for target in session.targets:
         session.label('track')
         session.track(target, duration=args.track_duration)

@@ -37,10 +37,6 @@ class CaptureSession(object):
             self.targets = self.collect_targets(args.targets)
         return self
 
-    @property
-    def targets_up(self):
-        return iter(self.targets)
-
     def label(self, label):
         pass
 

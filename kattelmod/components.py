@@ -6,7 +6,6 @@ class Component(object):
     _registry = {}
 
     def __init__(self):
-        self._aggregates = {}
         self._telstate = None
 
     def __setattr__(self, attr_name, value):
@@ -128,6 +127,11 @@ class CorrelatorBeamformer(Component):
         self._target.antenna = self.observer
 
 
+class ScienceDataProcessor(Component):
+    def __init__(self):
+        initialise_attributes(self, locals())
+
+
 class Environment(Component):
     def __init__(self):
         initialise_attributes(self, locals())
@@ -136,12 +140,6 @@ class Environment(Component):
         self.temperature = 25.0
         self.wind_speed = 4.2
         self.wind_direction = 90.0
-
-
-class Digitiser(Component):
-    def __init__(self):
-        initialise_attributes(self, locals())
-        self.overflow = False
 
 
 class Observation(Component):
