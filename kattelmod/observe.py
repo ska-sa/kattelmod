@@ -20,7 +20,10 @@ from .kat7_session import CaptureSession as KAT7CaptureSession
 from .kat7_session import TimeSession as KAT7TimeSession
 from .rts_session import CaptureSession as RTSCaptureSession
 from .rts_session import TimeSession as RTSTimeSession
-from .rts_session import projections, default_proj, ant_array
+from .rts_session import projections, default_proj
+from .mkat_session import CaptureSession as MKATCaptureSession
+from .mkat_session import TimeSession as MKATTimeSession
+from .mkat_session import projections, default_proj
 
 
 def standard_script_options(usage, description):
@@ -39,11 +42,13 @@ def standard_script_options(usage, description):
     """
     parser = optparse.OptionParser(usage=usage, description=description)
 
-    parser.add_option('--sb-id-code', type='string',
+    parser.add_option('--sb-id-code',
                       help='Schedule block id code for observation, '
                            'required in order to allocate correct resources')
-    parser.add_option('--project-id',
-                      help='Project ID code for the observation (**required**)')
+    parser.add_option('--proposal-id', default='',
+                      help='Approved proposal ID for the observation (previously project ID)')
+    parser.add_option('--program-block-id', default='',
+                      help='Program block ID for the observation')
     parser.add_option('-u', '--experiment-id',
                       help='Experiment ID used to link various parts of '
                       'experiment together (use sb-id-code by default, or random UUID)')
@@ -51,8 +56,8 @@ def standard_script_options(usage, description):
                       help='Name of person doing the observation (**required**)')
     parser.add_option('-d', '--description', default='No description.',
                       help="Description of observation (default='%default')")
-    parser.add_option('-f', '--centre-freq', type='float', default=1822.0,
-                      help='Centre frequency, in MHz (default=%default)')
+    parser.add_option('-f', '--centre-freq', type='float',
+                      help='Centre frequency, in MHz')
     parser.add_option('-r', '--dump-rate', type='float', default=1.0,
                       help='Dump rate, in Hz (default=%default)')
     parser.add_option('-n', '--nd-params', default='coupler,10,10,180',
@@ -70,7 +75,7 @@ def standard_script_options(usage, description):
                       help="Stow the antennas when the capture session ends")
     parser.add_option('--mode',
                       help="DBE mode to use for experiment, keeps current mode by default [KAT-7 only]")
-    parser.add_option('--dbe-centre-freq', type='float', default=None,
+    parser.add_option('--dbe-centre-freq', type='float',
                       help="DBE centre frequency in MHz, used to select coarse band for "
                            "narrowband modes (unchanged by default) [KAT-7 only]")
     parser.add_option('--product',
@@ -79,10 +84,12 @@ def standard_script_options(usage, description):
                       help="Name of script to use in reduction pipeline [MKAT only]")
     parser.add_option('--reduction-arguments',
                       help="Arguments for script in reduction pipeline [MKAT only]")
-    parser.add_option('--horizon', type='float', default=5.0,
+    parser.add_option('--horizon', type='float', default=15.0,
                       help="Session horizon (elevation limit) in degrees (default=%default)")
     parser.add_option('--no-mask', action='store_true', default=False,
                       help="Keep all correlation products by not applying baseline/antenna mask")
+    parser.add_option('--config-label',
+                      help="Configuration label used for this script.")
 
     return parser
 
@@ -90,10 +97,10 @@ def standard_script_options(usage, description):
 def verify_and_connect(opts):
     """Verify command-line options, build KAT configuration and connect to devices.
 
-    This inspects the parsed options and requires at least *observer* and
-    *system* to be set. It generates an experiment ID if missing (for now using
-    the sb-id-code if that is available) and verifies noise diode parameters if
-    given. It then creates a KAT connection based on the *system* option,
+    This inspects the parsed options and requires at least *observer* to be set.
+    It generates an experiment ID if missing (for now using
+    the sb-id-code if that is available) and verifies noise diode
+    parameters if given. It then creates a KAT connection,
     reusing an existing connection or falling back to the local system if
     required. The resulting KATCoreConn object is returned.
 
@@ -115,15 +122,13 @@ def verify_and_connect(opts):
         If required options are missing
 
     """
+
+    config_label = opts.config_label
+    if not config_label:
+        config_label = ''
     # Various non-optional options...
     if not hasattr(opts, 'observer') or opts.observer is None:
         raise ValueError('Please specify the observer name via -o option '
-                         '(yes, this is a non-optional option...)')
-    # if not hasattr(opts, 'sb_id_code') or opts.sb_id_code is None:
-    #    raise ValueError('Please specify the --sb-id-code option '
-    #                     '(yes, this is a non-optional option...)')
-    if not hasattr(opts, 'project_id') or opts.project_id is None:
-        raise ValueError('Please specify the project id code via the --project-id option '
                          '(yes, this is a non-optional option...)')
 
     # For now we force the sb-id-code as the experiment_id as no one is using it
@@ -136,7 +141,8 @@ def verify_and_connect(opts):
 
     site, system = get_system_configuration()
 
-    # If given, verify noise diode parameters (should be 'string,number,number,number') and convert to dict
+    # If given, verify noise diode parameters
+    # (should be 'string,number,number,number') and convert to dict
     if hasattr(opts, 'nd_params'):
         # Shortcut for switching off noise diodes
         if opts.nd_params.lower() == 'off':
@@ -145,37 +151,54 @@ def verify_and_connect(opts):
             opts.nd_params = eval("{'diode':'%s', 'on':%s, 'off':%s, 'period':%s}" %
                                   tuple(opts.nd_params.split(',')), {})
         except (TypeError, NameError):
-            raise ValueError("Noise diode parameters are incorrect (should be 'diode,on,off,period')")
+            raise ValueError(
+                    "Noise diode parameters are incorrect "
+                    "(should be 'diode,on,off,period')")
         for key in ('on', 'off', 'period'):
             if opts.nd_params[key] != float(opts.nd_params[key]):
-                raise ValueError("Parameter nd_params['%s'] = %s (should be a number)" % (key, opts.nd_params[key]))
+                raise ValueError(
+                        "Parameter nd_params['%s'] = %s (should be a number)"
+                        % (key, opts.nd_params[key]))
 
-    # Build KAT configuration which connects to all the proxies and devices and queries their commands and sensors
+    # Build KAT configuration which connects to all the proxies and devices
+    # and queries their commands and sensors
     try:
         if opts.sb_id_code is not None:
-            kat = configure_core(sb_id_code=opts.sb_id_code, dry_run=opts.dry_run)
+            kat = configure_core(sb_id_code=opts.sb_id_code,
+                                 dry_run=opts.dry_run,
+                                 config_label=config_label)
         else:
             # Temporarily give the user override options
-            print colors.Red, "\nBuilding without a schedule block id code is deprecated." \
-                  "\nTHERE MAY BE CONTROL CLASHES!!!!\nBut for one last time we will allow it ...", colors.Normal
-            choice = raw_input(colors.Red + "Do you want to cancel this build? y/n ...." + colors.Normal)
+            print (colors.Red,
+                "\nBuilding without a schedule block id code is deprecated."
+                "\nTHERE MAY BE CONTROL CLASHES!!!!"
+                "\nBut for one last time we will allow it ...", colors.Normal)
+            choice = raw_input(colors.Red
+                    + "Do you want to cancel this build? y/n ...." + colors.Normal)
             if choice not in ['n', 'N']:
-                raise ValueError("Cancelled build of KATCoreConn object connection for site=%s system=%s" % (site, system))
-            kat = tbuild(conn_clients='all', controlled_clients='all')
+                raise ValueError(
+                        "Cancelled build of KATCoreConn object connection "
+                        "for site=%s system=%s" % (site, system))
+            kat = tbuild(conn_clients='all', controlled_clients='all',
+                         config_label=config_label)
         user_logger.info("Using KAT connection with configuration=%s "
                          "sb_id_code=%s\nControlled objects: %s" %
                          (kat.system, opts.sb_id_code, kat.controlled_objects))
     except ValueError, err:
         # Don't default to local build.
         kat = None
-        user_logger.error("Could not build KATCoreConn object connection for site=%s system=%s (%s)" % (site, system, err))
-        raise ValueError("Could not build KATCoreConn object connection for site=%s system=%s (%s)" % (site, system, err))
+        user_logger.error(
+                "Could not build KATCoreConn object connection for site=%s system=%s (%s)"
+                % (site, system, err))
+        raise ValueError(
+                "Could not build KATCoreConn object connection for site=%s system=%s (%s)"
+                % (site, system, err))
 
     return kat
 
 
 def start_session(kat, **kwargs):
-    """Start capture session (real or fake).
+    """Start capture session (real or fake) as appropriate for the system.
 
     This starts a capture session initialised with the given arguments, choosing
     the appropriate session class to use based on the arguments. The system is
@@ -196,11 +219,17 @@ def start_session(kat, **kwargs):
         Session object associated with started session
 
     """
-    if hasattr(kat, 'dbe7'):
-        return KAT7TimeSession(kat, **kwargs) if kat.dry_run else KAT7CaptureSession(kat, **kwargs)
+    if "kat7" in kat.system:
+        return (KAT7TimeSession(kat, **kwargs) if kat.dry_run
+                else KAT7CaptureSession(kat, **kwargs))
+    elif "mkat_rts" in kat.system:
+        return (RTSTimeSession(kat, **kwargs) if kat.dry_run
+                else RTSCaptureSession(kat, **kwargs))
+    elif "mkat" in kat.system:
+        return (MKATTimeSession(kat, **kwargs) if kat.dry_run
+            else MKATCaptureSession(kat, **kwargs))
     else:
-        return RTSTimeSession(kat, **kwargs) if kat.dry_run else RTSCaptureSession(kat, **kwargs)
-
+        return None
 
 def collect_targets(kat, args):
     """Collect targets specified by name, description string or catalogue file.
@@ -238,11 +267,13 @@ def collect_targets(kat, args):
             num_catalogues += 1
         except IOError:
             # If the file failed to load, assume it is a name or description string
-            # With no comma in target string, assume it's the name of a target to be looked up in standard catalogue
+            # With no comma in target string, assume it's the name of a target
+            # to be looked up in standard catalogue
             if arg.find(',') < 0:
                 target = kat.sources[arg]
                 if target is None:
-                    user_logger.warning("Unknown target or catalogue %r, skipping it" % (arg,))
+                    user_logger.warning(
+                            "Unknown target or catalogue %r, skipping it" % (arg,))
                 else:
                     targets.add(target)
                     from_names += 1
@@ -255,6 +286,9 @@ def collect_targets(kat, args):
                     user_logger.warning("Invalid target %r, skipping it [%s]" % (arg, err))
     if len(targets) == 0:
         raise ValueError("No known targets found in argument list")
-    user_logger.info("Found %d target(s): %d from %d catalogue(s), %d from default catalogue and %d as target string(s)"
-                     % (len(targets), from_catalogues, num_catalogues, from_names, from_strings))
+    user_logger.info(
+            "Found %d target(s): %d from %d catalogue(s), %d from default catalogue "
+            "and %d as target string(s)"
+            % (len(targets), from_catalogues, num_catalogues, from_names, from_strings))
     return targets
+
