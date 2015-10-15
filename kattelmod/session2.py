@@ -37,6 +37,9 @@ class CaptureSession(object):
             self.targets = self.collect_targets(args.targets)
         return self
 
+    def new_compound_scan(self):
+        yield self
+
     def label(self, label):
         pass
 
