@@ -18,4 +18,5 @@ for system in systems:
     session[system] = system_module.CaptureSession
 #    model[system] = os.path.join(systems_path, system, 'model.cfg')
 
-del systems_module, systems_path, parent, system_module
+# Keep the API clean to aid user inspection of module properties
+del systems_module, systems_path, parent, system_module, system, s, sys, os, pkgutil
