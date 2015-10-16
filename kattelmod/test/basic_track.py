@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # Track target(s) for a specified time.
 
-from kattelmod import CaptureSession
+from kattelmod import CaptureSession, session_from_commandline
 
-session = CaptureSession.from_commandline()
+session = session_from_commandline()
 parser = session.argparser(description='Track one or more targets for a specified time.')
 # Add experiment-specific options
 parser.add_argument('-t', '--track-duration', metavar='DURATION', type=float, default=20.0,

@@ -6,11 +6,7 @@ class CaptureSession(object):
     """Capturing a single subarray product."""
     def __init__(self, cmdline=None, targets=True):
         self.targets = targets
-
-    @classmethod
-    def from_commandline(cls):
-        """Construct capture session from observation script parameters."""
-        return cls(cmdline=sys.argv)
+        self.components = {}
 
     def __enter__(self):
         """Enter context."""
