@@ -1,46 +1,21 @@
+from kattelmod.component import TelstateUpdatingComponent
 from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
                       construct_azel_target)
 
 
-class Component(object):
-    _registry = {}
-
-    def __init__(self):
-        self._telstate = None
-
-    def __setattr__(self, attr_name, value):
-        object.__setattr__(self, attr_name, value)
-        if not attr_name.startswith('_') and self._telstate:
-            sensor_name = "{}_{}".format(self.name, attr_name)
-            print "telstate", sensor_name, value
-#            self._telstate.add(sensor_name, value)
-
-    def update(self, timestamp):
-        pass
-
-    @property
-    def name(self):
-        return Component._registry.get(self, '')
+class Subarray(TelstateUpdatingComponent):
+    def __init__(self, config_label='', band='l',
+                 product='c856M4k', sub_nr=1):
+        self.initialise_attributes(locals())
 
 
-def initialise_attributes(obj, params):
-    """Assign parameters in dict *params* to attributes on object *obj*."""
-    # Also call base initialiser while we are at it
-    super(obj.__class__, obj).__init__()
-    if 'self' in params:
-        del params['self']
-    for name, value in params.items():
-        setattr(obj, name, value)
-
-
-class AntennaPositioner(Component):
+class AntennaPositioner(TelstateUpdatingComponent):
     def __init__(self, observer,
                  real_az_min_deg=-185, real_az_max_deg=275,
                  real_el_min_deg=15, real_el_max_deg=92,
                  max_slew_azim_dps=2.0, max_slew_elev_dps=1.0,
                  inner_threshold_deg=0.01):
-        # Simplistically assign all parameters to corresponding attributes
-        initialise_attributes(self, locals())
+        self.initialise_attributes(locals())
         self.activity = 'stop'
         self.target = ''
         self.pos_actual_scan_azim = self.pos_request_scan_azim = 0.0
@@ -102,12 +77,22 @@ class AntennaPositioner(Component):
         print 'elapsed: %g, max_daz: %g, max_del: %g, daz: %g, del: %g, error: %g' % (elapsed_time, max_delta_az, max_delta_el, delta_az, delta_el, error)
 
 
-class CorrelatorBeamformer(Component):
+class Environment(TelstateUpdatingComponent):
+    def __init__(self):
+        self.initialise_attributes(locals())
+        self.pressure = 1020
+        self.relative_humidity = 60.0
+        self.temperature = 25.0
+        self.wind_speed = 4.2
+        self.wind_direction = 90.0
+
+
+class CorrelatorBeamformer(TelstateUpdatingComponent):
     def __init__(self, product, n_chans, n_accs, n_bls, bls_ordering, bandwidth,
                  sync_time, int_time, scale_factor_timestamp, observer):
-        initialise_attributes(self, locals())
+        self.initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'
-        self.auto_delay = True
+        self.auto_delay_enabled = True
 
     @property
     def observer(self):
@@ -124,24 +109,6 @@ class CorrelatorBeamformer(Component):
         self._target = Target(target, antenna=self._observer) if target else None
 
 
-class ScienceDataProcessor(Component):
+class ScienceDataProcessor(TelstateUpdatingComponent):
     def __init__(self):
-        initialise_attributes(self, locals())
-
-
-class Environment(Component):
-    def __init__(self):
-        initialise_attributes(self, locals())
-        self.pressure = 1020
-        self.relative_humidity = 60.0
-        self.temperature = 25.0
-        self.wind_speed = 4.2
-        self.wind_direction = 90.0
-
-
-class Observation(Component):
-    def __init__(self):
-        initialise_attributes(self, locals())
-        self.label = ''
-        self.params = {}
-        self.script_log = ''
+        self.initialise_attributes(locals())
