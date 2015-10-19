@@ -103,11 +103,9 @@ class AntennaPositioner(Component):
 
 
 class CorrelatorBeamformer(Component):
-    def __init__(self, n_chans, n_accs, n_bls, bls_ordering, bandwidth,
-                 sync_time, int_time, scale_factor_timestamp,
-                 observer='ref, -30:42:47.412, 21:26:38.004, 1035'):
+    def __init__(self, product, n_chans, n_accs, n_bls, bls_ordering, bandwidth,
+                 sync_time, int_time, scale_factor_timestamp, observer):
         initialise_attributes(self, locals())
-        self.product = 'c856M4k'
         self.target = 'Zenith, azel, 0, 90'
         self.auto_delay = True
 
@@ -123,8 +121,7 @@ class CorrelatorBeamformer(Component):
         return self._target
     @target.setter
     def target(self, target):
-        self._target = Target(target) if target else None
-        self._target.antenna = self.observer
+        self._target = Target(target, antenna=self._observer) if target else None
 
 
 class ScienceDataProcessor(Component):
@@ -146,4 +143,5 @@ class Observation(Component):
     def __init__(self):
         initialise_attributes(self, locals())
         self.label = ''
-        self.params = ''
+        self.params = {}
+        self.script_log = ''
