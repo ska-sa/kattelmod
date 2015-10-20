@@ -4,8 +4,8 @@ from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
 
 
 class Subarray(TelstateUpdatingComponent):
-    def __init__(self, config_label='', band='l',
-                 product='c856M4k', sub_nr=1):
+    def __init__(self, receptors, config_label='unknown', band='l',
+                 product='c856M4k', dump_rate=1.0, sub_nr=1):
         self.initialise_attributes(locals())
 
 
