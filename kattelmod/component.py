@@ -1,3 +1,9 @@
+from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
+                                   ThreadSafeKATCPClientResourceWrapper)
+from katcp.ioloop_manager import IOLoopManager
+from katsdptelstate.endpoint import endpoint_parser
+
+
 class Component(object):
     _registry = {}
 
@@ -24,5 +30,36 @@ class TelstateUpdatingComponent(Component):
             print "telstate", sensor_name, value
 #            self._telstate.add(sensor_name, value)
 
-    def update(self, timestamp):
+    def _update(self, timestamp):
         pass
+
+    def _start(self, ioloop):
+        pass
+
+    def _stop(self):
+        pass
+
+
+class KATCPComponent(Component):
+    def __init__(self, endpoint):
+        self._client = None
+        self._endpoint = endpoint_parser(-1)(endpoint)
+        if self._endpoint.port < 0:
+            raise ValueError("Please specify port for KATCP client '{}'"
+                             .format(endpoint))
+
+    def _start(self, ioloop):
+        resource_spec = dict(name=str(self.__class__), controlled=True,
+                             address=(self._endpoint.host, self._endpoint.port))
+        async_client = KATCPClientResource(resource_spec)
+        async_client.set_ioloop(ioloop)
+        ioloop.add_callback(async_client.start)
+        wrapped_ioloop = IOLoopThreadWrapper(ioloop)
+        wrapped_ioloop.default_timeout = 1
+        self._client = ThreadSafeKATCPClientResourceWrapper(async_client,
+                                                            wrapped_ioloop)
+        self._client.until_synced()
+
+    def _stop(self):
+        if self._client:
+            self._client.stop()
