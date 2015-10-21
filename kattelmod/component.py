@@ -5,11 +5,8 @@ class Component(object):
     def name(self):
         return Component._registry.get(self, '')
 
-    def initialise_attributes(self, params):
+    def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
-        # Also call base initialiser while we are at it
-        # Dodgy, yes, but at least no infinite recursion I think
-        super(self.__class__, self).__init__()
         if 'self' in params:
             del params['self']
         for name, value in params.items():

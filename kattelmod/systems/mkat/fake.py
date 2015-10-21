@@ -1,3 +1,5 @@
+"""Components for a fake telescope."""
+
 from kattelmod.component import TelstateUpdatingComponent
 from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
                       construct_azel_target)
@@ -6,7 +8,8 @@ from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
 class Subarray(TelstateUpdatingComponent):
     def __init__(self, receptors, config_label='unknown', band='l',
                  product='c856M4k', dump_rate=1.0, sub_nr=1):
-        self.initialise_attributes(locals())
+        super(Subarray, self).__init__()
+        self._initialise_attributes(locals())
 
 
 class AntennaPositioner(TelstateUpdatingComponent):
@@ -15,7 +18,8 @@ class AntennaPositioner(TelstateUpdatingComponent):
                  real_el_min_deg=15, real_el_max_deg=92,
                  max_slew_azim_dps=2.0, max_slew_elev_dps=1.0,
                  inner_threshold_deg=0.01):
-        self.initialise_attributes(locals())
+        super(AntennaPositioner, self).__init__()
+        self._initialise_attributes(locals())
         self.activity = 'stop'
         self.target = ''
         self.pos_actual_scan_azim = self.pos_request_scan_azim = 0.0
@@ -79,7 +83,8 @@ class AntennaPositioner(TelstateUpdatingComponent):
 
 class Environment(TelstateUpdatingComponent):
     def __init__(self):
-        self.initialise_attributes(locals())
+        super(Environment, self).__init__()
+        self._initialise_attributes(locals())
         self.pressure = 1020
         self.relative_humidity = 60.0
         self.temperature = 25.0
@@ -90,7 +95,8 @@ class Environment(TelstateUpdatingComponent):
 class CorrelatorBeamformer(TelstateUpdatingComponent):
     def __init__(self, product, n_chans, n_accs, n_bls, bls_ordering, bandwidth,
                  sync_time, int_time, scale_factor_timestamp, observer):
-        self.initialise_attributes(locals())
+        super(CorrelatorBeamformer, self).__init__()
+        self._initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'
         self.auto_delay_enabled = True
 
@@ -111,4 +117,5 @@ class CorrelatorBeamformer(TelstateUpdatingComponent):
 
 class ScienceDataProcessor(TelstateUpdatingComponent):
     def __init__(self):
-        self.initialise_attributes(locals())
+        super(ScienceDataProcessor, self).__init__()
+        self._initialise_attributes(locals())
