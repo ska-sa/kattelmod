@@ -1,6 +1,7 @@
 import os.path
 from ConfigParser import SafeConfigParser, NoSectionError, Error
 from importlib import import_module
+from collections import OrderedDict
 
 import numpy as np
 
@@ -45,7 +46,7 @@ def session_from_config(config_file):
     all_ants = file(os.path.join(systems_path, system, 'antennas.txt')).readlines()
     all_ants = {line.split(',')[0]: line.strip() for line in all_ants}
     # Construct all components
-    components = {}
+    components = OrderedDict()
     receptors = ''
     for comp_name, comp_type in cfg.items('Telescope {}'.format(system)):
         # Expand receptor groups

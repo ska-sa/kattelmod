@@ -6,14 +6,14 @@ from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
 
 
 class Subarray(TelstateUpdatingComponent):
-    def __init__(self, receptors, config_label='unknown', band='l',
+    def __init__(self, receptors='', config_label='unknown', band='l',
                  product='c856M4k', dump_rate=1.0, sub_nr=1):
         super(Subarray, self).__init__()
         self._initialise_attributes(locals())
 
 
 class AntennaPositioner(TelstateUpdatingComponent):
-    def __init__(self, observer,
+    def __init__(self, observer='',
                  real_az_min_deg=-185, real_az_max_deg=275,
                  real_el_min_deg=15, real_el_max_deg=92,
                  max_slew_azim_dps=2.0, max_slew_elev_dps=1.0,
@@ -31,7 +31,7 @@ class AntennaPositioner(TelstateUpdatingComponent):
         return self._observer
     @observer.setter
     def observer(self, observer):
-        self._observer = Antenna(observer)
+        self._observer = Antenna(observer) if observer else None
 
     @property
     def target(self):
@@ -105,7 +105,7 @@ class CorrelatorBeamformer(TelstateUpdatingComponent):
         return self._observer
     @observer.setter
     def observer(self, observer):
-        self._observer = Antenna(observer)
+        self._observer = Antenna(observer) if observer else None
 
     @property
     def target(self):

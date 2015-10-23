@@ -6,11 +6,13 @@ from katsdptelstate.endpoint import endpoint_parser
 class Component(object):
     def __init__(self):
         self.name = ''
+        self._immutables = []
 
     def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
         if 'self' in params:
             del params['self']
+        self._immutables = params.keys()
         for name, value in params.items():
             setattr(self, name, value)
 
@@ -25,13 +27,17 @@ class TelstateUpdatingComponent(Component):
         if not attr_name.startswith('_') and self._telstate:
             sensor_name = "{}_{}".format(self.name, attr_name)
             print "telstate", sensor_name, value
-#            self._telstate.add(sensor_name, value)
+            # self._telstate.add(sensor_name, value,
+            #                    immutable=attr_name in self._immutables)
 
     def _update(self, timestamp):
         pass
 
     def _start(self, ioloop):
-        pass
+        # Reassign values to object attributes to trigger output to telstate
+        for attr_name in vars(self):
+            if not attr_name.startswith('_'):
+                setattr(self, attr_name, getattr(self, attr_name))
 
     def _stop(self):
         pass
