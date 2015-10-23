@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Track target(s) for a specified time.
 
-from kattelmod import CaptureSession, session_from_commandline
+from kattelmod import session_from_commandline
 
 session = session_from_commandline()
 parser = session.argparser(description='Track one or more targets for a specified time.')

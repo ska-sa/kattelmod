@@ -1,12 +1,11 @@
-import sys
 import argparse
 
 
 class CaptureSession(object):
     """Capturing a single subarray product."""
-    def __init__(self, cmdline=None, targets=True):
-        self.targets = targets
-        self.components = {}
+    def __init__(self, components):
+        self.components = components
+        self.targets = True
 
     def __enter__(self):
         """Enter context."""
@@ -19,6 +18,7 @@ class CaptureSession(object):
 
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)
+        parser.add_argument('--config')
         parser.add_argument('--description')
         parser.add_argument('--dump-rate', type=float, default=2.0)
         if self.targets:
@@ -32,6 +32,9 @@ class CaptureSession(object):
         if self.targets:
             self.targets = self.collect_targets(args.targets)
         return self
+
+    def disconnect(self):
+        pass
 
     def new_compound_scan(self):
         yield self

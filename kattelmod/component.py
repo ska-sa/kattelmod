@@ -1,15 +1,11 @@
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
                                    ThreadSafeKATCPClientResourceWrapper)
-from katcp.ioloop_manager import IOLoopManager
 from katsdptelstate.endpoint import endpoint_parser
 
 
 class Component(object):
-    _registry = {}
-
-    @property
-    def name(self):
-        return Component._registry.get(self, '')
+    def __init__(self):
+        self.name = ''
 
     def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
@@ -22,6 +18,7 @@ class Component(object):
 class TelstateUpdatingComponent(Component):
     def __init__(self):
         self._telstate = None
+        super(TelstateUpdatingComponent, self).__init__()
 
     def __setattr__(self, attr_name, value):
         object.__setattr__(self, attr_name, value)
@@ -42,6 +39,7 @@ class TelstateUpdatingComponent(Component):
 
 class KATCPComponent(Component):
     def __init__(self, endpoint):
+        super(KATCPComponent, self).__init__()
         self._client = None
         self._endpoint = endpoint_parser(-1)(endpoint)
         if self._endpoint.port < 0:
