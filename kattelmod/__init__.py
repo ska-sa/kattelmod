@@ -13,7 +13,7 @@ telescope_systems = [s for _, s, _ in _pkgutil.iter_modules([_systems_path])]
 def session_from_commandline():
     """Construct capture session from observation script parameters."""
     _parser = _argparse.ArgumentParser()
-    _parser.add_argument('--config')
+    _parser.add_argument('--config', default='mkat/sim_60ant.cfg')
     args, other = _parser.parse_known_args()
     return session_from_config(args.config)
 

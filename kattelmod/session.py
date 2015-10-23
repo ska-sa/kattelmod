@@ -18,7 +18,7 @@ class CaptureSession(object):
 
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)
-        parser.add_argument('--config')
+        parser.add_argument('--config', default='mkat/sim_60ant.cfg')
         parser.add_argument('--description')
         parser.add_argument('--dump-rate', type=float, default=2.0)
         if self.targets:
