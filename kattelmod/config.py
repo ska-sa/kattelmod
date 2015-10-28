@@ -19,7 +19,7 @@ def _create_component(cfg, system, comp_name, comp_type, **kwargs):
              if cfg.has_section(comp_name) else {}
     params.update(kwargs)
     comp = Component(**params)
-    comp.name = comp_name
+    comp._name = comp_name
     return comp
 
 
