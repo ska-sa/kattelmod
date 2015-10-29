@@ -5,6 +5,9 @@ class CaptureSession(object):
     """Capturing a single subarray product."""
     def __init__(self, components):
         self.components = components
+        # Create corresponding attributes to access components
+        for comp_name, comp in components.items():
+            setattr(self, comp_name, comp)
         self.targets = True
 
     def __enter__(self):

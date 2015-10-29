@@ -62,6 +62,7 @@ def session_from_config(config_file):
             receptors = ','.join(names)
         else:
             names = [comp_name]
+        comps = []
         for name in names:
             if comp_type.endswith('AntennaPositioner'):
                 extras = {'observer': all_ants.get(name, '')}
@@ -69,12 +70,9 @@ def session_from_config(config_file):
                 extras = {'receptors': receptors}
             else:
                 extras = {}
-            components[name] = _create_component(cfg, system, name, comp_type,
-                                                 **extras)
-        if group:
-            comp_group = [components[name] for name in names]
-            components[comp_name] = MultiComponent(comp_group)
-            components[comp_name]._name = comp_name
+            comps.append(_create_component(cfg, system, name, comp_type, **extras))
+        components[comp_name] = MultiComponent(comps) if group else comps[0]
+        components[comp_name]._name = comp_name
     # Construct session object
     module_path = "kattelmod.systems.{}.session".format(system)
     CaptureSession = getattr(import_module(module_path), 'CaptureSession')

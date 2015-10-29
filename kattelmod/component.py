@@ -95,6 +95,9 @@ class MultiComponent(Component):
     def __init__(self, comps):
         super(MultiComponent, self).__init__()
         self._comps = list(comps)
+        # Create corresponding attributes to access components
+        for comp in comps:
+            super(MultiComponent, self).__setattr__(comp._name, comp)
         def api_methods(obj):
             return {k: getattr(obj, k) for k in dir(obj)
                     if callable(getattr(obj, k)) and not k.endswith('__')}
