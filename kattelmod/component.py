@@ -8,6 +8,11 @@ class Component(object):
         self._name = ''
         self._immutables = []
 
+    def __repr__(self):
+        module = self.__class__.__module__.replace('kattelmod.systems.', '')
+        comp = self.__class__.__name__
+        return "<{}.{} '{}' at {}>".format(module, comp, self._name, id(self))
+
     def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
         if 'self' in params:
@@ -108,3 +113,14 @@ class MultiComponent(Component):
             # Set attribute on underlying components but not on self
             for comp in self._comps:
                 setattr(comp, attr_name, value)
+
+    def __repr__(self):
+        if len(self._comps) > 0:
+            comp = self._comps[0]
+            module = comp.__class__.__module__.replace('kattelmod.systems.', '')
+            comp_type = comp.__class__.__name__
+            comps = " with {} {}.{}".format(len(self._comps), module, comp_type)
+            comps = comps + 's' if len(self._comps) > 1 else comps
+        else:
+            comps = ""
+        return "<MultiComponent '{}'{} at {}>".format(self._name, comps, id(self))
