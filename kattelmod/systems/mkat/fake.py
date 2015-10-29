@@ -24,7 +24,6 @@ class AntennaPositioner(TelstateUpdatingComponent):
         self.target = ''
         self.pos_actual_scan_azim = self.pos_request_scan_azim = 0.0
         self.pos_actual_scan_elev = self.pos_request_scan_elev = 90.0
-        self._last_update = 0.0
 
     @property
     def observer(self):
@@ -43,8 +42,8 @@ class AntennaPositioner(TelstateUpdatingComponent):
             self.activity = 'slew' if self._target else 'stop'
 
     def _update(self, timestamp):
-        elapsed_time = timestamp - self._last_update if self._last_update else 0.0
-        self._last_update = timestamp
+        super(AntennaPositioner, self)._update(timestamp)
+        elapsed_time = self._elapsed_time
         if self.activity in ('error', 'stop'):
             return
         az, el = self.pos_actual_scan_azim, self.pos_actual_scan_elev

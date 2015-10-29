@@ -25,18 +25,26 @@ class Component(object):
 class TelstateUpdatingComponent(Component):
     def __init__(self):
         self._telstate = None
+        self._elapsed_time = 0.0
+        self._last_update = 0.0
         super(TelstateUpdatingComponent, self).__init__()
 
     def __setattr__(self, attr_name, value):
         object.__setattr__(self, attr_name, value)
-        if not attr_name.startswith('_') and self._telstate:
+        # Default strategy for sensor updates:
+        # event-rate 0.4 for position sensors and standard event for the rest
+        time_to_send = self._elapsed_time > 0.4 \
+                       if attr_name.startswith('pos_') else True
+        if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
             print "telstate", sensor_name, value
             # self._telstate.add(sensor_name, value,
             #                    immutable=attr_name in self._immutables)
 
     def _update(self, timestamp):
-        pass
+        self._elapsed_time = timestamp - self._last_update \
+                             if self._last_update else 0.0
+        self._last_update = timestamp
 
     def _start(self, ioloop):
         # Reassign values to object attributes to trigger output to telstate
