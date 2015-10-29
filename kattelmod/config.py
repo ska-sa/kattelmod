@@ -6,6 +6,7 @@ from collections import OrderedDict
 import numpy as np
 
 import kattelmod.systems
+from kattelmod.component import MultiComponent
 
 
 def _create_component(cfg, system, comp_name, comp_type, **kwargs):
@@ -50,9 +51,11 @@ def session_from_config(config_file):
     receptors = ''
     for comp_name, comp_type in cfg.items('Telescope {}'.format(system)):
         # Expand receptor groups
-        if comp_name.endswith('*') and cfg.has_section(comp_name[:-1]):
+        group = comp_name.endswith('*') and cfg.has_section(comp_name[:-1])
+        if group:
+            comp_name = comp_name[:-1]
             names = []
-            for initial, final in cfg.items(comp_name[:-1]):
+            for initial, final in cfg.items(comp_name):
                 if not initial.endswith('+'):
                     continue
                 names += [initial[:-1] + f for f in final if f in '0123456789']
@@ -68,6 +71,10 @@ def session_from_config(config_file):
                 extras = {}
             components[name] = _create_component(cfg, system, name, comp_type,
                                                  **extras)
+        if group:
+            comp_group = [components[name] for name in names]
+            components[comp_name] = MultiComponent(comp_group)
+            components[comp_name]._name = comp_name
     # Construct session object
     module_path = "kattelmod.systems.{}.session".format(system)
     CaptureSession = getattr(import_module(module_path), 'CaptureSession')

@@ -67,3 +67,44 @@ class KATCPComponent(Component):
     def _stop(self):
         if self._client:
             self._client.stop()
+
+
+class MultiMethod(object):
+    """Call the same method on multiple similar objects."""
+    def __init__(self, objects, name, description):
+        self.objects = objects
+        self.name = name
+        self.__doc__ = description
+
+    def __call__(self, *args, **kwargs):
+        for obj in self.objects:
+            method = getattr(obj, self.name, None)
+            if method:
+                method(*args, **kwargs)
+
+
+class MultiComponent(Component):
+    """Combine multiple similar components into a single component."""
+    _not_shared = ('_name', '_immutables', '_comps')
+
+    def __init__(self, comps):
+        super(MultiComponent, self).__init__()
+        self._comps = list(comps)
+        def api_methods(obj):
+            return {k: getattr(obj, k) for k in dir(obj)
+                    if callable(getattr(obj, k)) and not k.endswith('__')}
+        # Register methods
+        for comp in self._comps:
+            existing = api_methods(self).keys()
+            for name, method in api_methods(comp).items():
+                if name not in existing:
+                    multimethod = MultiMethod(self._comps, name, method.__doc__)
+                    super(MultiComponent, self).__setattr__(name, multimethod)
+
+    def __setattr__(self, attr_name, value):
+        if attr_name in self._not_shared:
+            super(MultiComponent, self).__setattr__(attr_name, value)
+        else:
+            # Set attribute on underlying components but not on self
+            for comp in self._comps:
+                setattr(comp, attr_name, value)
