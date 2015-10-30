@@ -6,8 +6,8 @@ class CaptureSession(object):
     def __init__(self, components):
         self.components = components
         # Create corresponding attributes to access components
-        for comp_name, comp in components.items():
-            setattr(self, comp_name, comp)
+        for comp in components:
+            setattr(self, comp._name, comp)
         self.targets = True
 
     def __enter__(self):

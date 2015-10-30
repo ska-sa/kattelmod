@@ -98,10 +98,11 @@ class MultiMethod(object):
 
 class MultiComponent(Component):
     """Combine multiple similar components into a single component."""
-    _not_shared = ('_name', '_immutables', '_comps')
+    _not_shared = ('_name', '_immutables', '_started', '_comps')
 
-    def __init__(self, comps):
+    def __init__(self, name, comps):
         super(MultiComponent, self).__init__()
+        self._name = name
         self._comps = list(comps)
         # Create corresponding attributes to access components
         for comp in comps:
@@ -127,11 +128,16 @@ class MultiComponent(Component):
 
     def __repr__(self):
         if len(self._comps) > 0:
-            comp = self._comps[0]
-            module = comp.__class__.__module__.replace('kattelmod.systems.', '')
-            comp_type = comp.__class__.__name__
-            comps = " with {} {}.{}".format(len(self._comps), module, comp_type)
+            comp_types = ['{}.{}'.format(comp.__class__.__module__,
+                                         comp.__class__.__name__)
+                          for comp in self._comps]
+            comp_type = comp_types[0].replace('kattelmod.systems.', '') \
+                        if len(set(comp_types)) == 1 else 'Component'
+            comps = " with {} {}".format(len(self._comps), comp_type)
             comps = comps + 's' if len(self._comps) > 1 else comps
         else:
             comps = ""
         return "<MultiComponent '{}'{} at {}>".format(self._name, comps, id(self))
+
+    def __iter__(self):
+        return iter(self._comps)

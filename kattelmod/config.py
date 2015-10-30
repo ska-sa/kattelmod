@@ -1,7 +1,6 @@
 import os.path
 from ConfigParser import SafeConfigParser, NoSectionError, Error
 from importlib import import_module
-from collections import OrderedDict
 
 import numpy as np
 
@@ -47,7 +46,7 @@ def session_from_config(config_file):
     all_ants = file(os.path.join(systems_path, system, 'antennas.txt')).readlines()
     all_ants = {line.split(',')[0]: line.strip() for line in all_ants}
     # Construct all components
-    components = OrderedDict()
+    components = []
     receptors = ''
     for comp_name, comp_type in cfg.items('Telescope {}'.format(system)):
         # Expand receptor groups
@@ -71,9 +70,8 @@ def session_from_config(config_file):
             else:
                 extras = {}
             comps.append(_create_component(cfg, system, name, comp_type, **extras))
-        components[comp_name] = MultiComponent(comps) if group else comps[0]
-        components[comp_name]._name = comp_name
+        components.append(MultiComponent(comp_name, comps) if group else comps[0])
     # Construct session object
     module_path = "kattelmod.systems.{}.session".format(system)
     CaptureSession = getattr(import_module(module_path), 'CaptureSession')
-    return CaptureSession(components)
+    return CaptureSession(MultiComponent(system, components))
