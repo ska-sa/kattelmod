@@ -111,12 +111,15 @@ class MultiComponent(Component):
             return {k: getattr(obj, k) for k in dir(obj)
                     if callable(getattr(obj, k)) and not k.endswith('__')}
         # Register methods
+        methods = {}
         for comp in self._comps:
-            existing = api_methods(self).keys()
             for name, method in api_methods(comp).items():
-                if name not in existing:
-                    multimethod = MultiMethod(self._comps, name, method.__doc__)
-                    super(MultiComponent, self).__setattr__(name, multimethod)
+                methods[name] = methods.get(name, []) + [method]
+        for name, meths in methods.items():
+            # Only create a top-level method if all components below have it
+            if len(meths) == len(self._comps):
+                multimethod = MultiMethod(self._comps, name, meths[0].__doc__)
+                super(MultiComponent, self).__setattr__(name, multimethod)
 
     def __setattr__(self, attr_name, value):
         if attr_name in self._not_shared:
