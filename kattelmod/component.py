@@ -1,12 +1,15 @@
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
                                    ThreadSafeKATCPClientResourceWrapper)
-from katsdptelstate.endpoint import endpoint_parser
+
+from kattelmod.telstate import endpoint_parser
 
 
 class Component(object):
+    """Basic element of telescope system that provides monitoring and control."""
     def __init__(self):
         self._name = ''
         self._immutables = []
+        self._started = False
 
     def __repr__(self):
         module = self.__class__.__module__.replace('kattelmod.systems.', '')
@@ -21,8 +24,18 @@ class Component(object):
         for name, value in params.items():
             setattr(self, name, value)
 
+    def _start(self, ioloop):
+        self._started = True
+
+    def _stop(self):
+        self._started = False
+
+    def _update(self, timestamp):
+        pass
+
 
 class TelstateUpdatingComponent(Component):
+    """Component that will update telstate when its attributes are set."""
     def __init__(self):
         self._telstate = None
         self._elapsed_time = 0.0
@@ -47,16 +60,17 @@ class TelstateUpdatingComponent(Component):
         self._last_update = timestamp
 
     def _start(self, ioloop):
+        if self._started:
+            return
+        super(TelstateUpdatingComponent, self)._start(ioloop)
         # Reassign values to object attributes to trigger output to telstate
         for attr_name in vars(self):
             if not attr_name.startswith('_'):
                 setattr(self, attr_name, getattr(self, attr_name))
 
-    def _stop(self):
-        pass
-
 
 class KATCPComponent(Component):
+    """Component based around a KATCP client connected to an external service."""
     def __init__(self, endpoint):
         super(KATCPComponent, self).__init__()
         self._client = None
@@ -66,6 +80,9 @@ class KATCPComponent(Component):
                              .format(endpoint))
 
     def _start(self, ioloop):
+        if self._started:
+            return
+        super(KATCPComponent, self)._start(ioloop)
         resource_spec = dict(name=str(self.__class__), controlled=True,
                              address=(self._endpoint.host, self._endpoint.port))
         async_client = KATCPClientResource(resource_spec)
@@ -78,8 +95,11 @@ class KATCPComponent(Component):
         self._client.until_synced()
 
     def _stop(self):
+        if not self._started:
+            return
         if self._client:
             self._client.stop()
+        super(KATCPComponent, self)._stop()
 
 
 class MultiMethod(object):
