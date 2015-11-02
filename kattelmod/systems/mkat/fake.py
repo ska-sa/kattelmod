@@ -6,8 +6,8 @@ from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
 
 
 class Subarray(TelstateUpdatingComponent):
-    def __init__(self, receptors='', config_label='unknown', band='l',
-                 product='c856M4k', dump_rate=1.0, sub_nr=1):
+    def __init__(self, config_label='unknown', band='l', product='c856M4k',
+                 dump_rate=1.0, sub_nr=1):
         super(Subarray, self).__init__()
         self._initialise_attributes(locals())
 
@@ -84,7 +84,7 @@ class Environment(TelstateUpdatingComponent):
     def __init__(self):
         super(Environment, self).__init__()
         self._initialise_attributes(locals())
-        self.pressure = 1020
+        self.pressure = 1020.3
         self.relative_humidity = 60.0
         self.temperature = 25.0
         self.wind_speed = 4.2

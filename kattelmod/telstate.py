@@ -27,6 +27,7 @@ else:
     from collections import namedtuple
 
     Endpoint = namedtuple('Endpoint', 'host port')
+    Endpoint.__str__ = lambda self: "{}:{}".format(self.host, self.port)
 
     def endpoint_parser(default_port):
         """Simplistic version of katsdptelstate endpoint parser."""

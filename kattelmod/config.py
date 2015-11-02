@@ -47,7 +47,6 @@ def session_from_config(config_file):
     all_ants = {line.split(',')[0]: line.strip() for line in all_ants}
     # Construct all components
     components = []
-    receptors = ''
     for comp_name, comp_type in cfg.items('Telescope {}'.format(system)):
         # Expand receptor groups
         group = comp_name.endswith('*') and cfg.has_section(comp_name[:-1])
@@ -58,15 +57,12 @@ def session_from_config(config_file):
                 if not initial.endswith('+'):
                     continue
                 names += [initial[:-1] + f for f in final if f in '0123456789']
-            receptors = ','.join(names)
         else:
             names = [comp_name]
         comps = []
         for name in names:
             if comp_type.endswith('AntennaPositioner'):
                 extras = {'observer': all_ants.get(name, '')}
-            elif comp_type.endswith('Subarray'):
-                extras = {'receptors': receptors}
             else:
                 extras = {}
             comps.append(_create_component(cfg, system, name, comp_type, **extras))
