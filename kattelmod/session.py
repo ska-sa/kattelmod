@@ -1,5 +1,7 @@
 import argparse
 
+from katcp.ioloop_manager import IOLoopManager
+
 
 class CaptureSession(object):
     """Capturing a single subarray product."""
@@ -9,13 +11,17 @@ class CaptureSession(object):
         for comp in components:
             setattr(self, comp._name, comp)
         self.targets = True
+        self._ioloop = self._ioloop_manager = None
 
     def __enter__(self):
         """Enter context."""
+        self.capture_start()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Exit context."""
+        self.capture_stop()
+        self.disconnect()
         # Don't suppress exceptions
         return False
 
@@ -34,10 +40,21 @@ class CaptureSession(object):
     def connect(self, args):
         if self.targets:
             self.targets = self.collect_targets(args.targets)
+        self._ioloop_manager = IOLoopManager()
+        self._ioloop = self._ioloop_manager.get_ioloop()
+        self._ioloop.make_current()
+        self._ioloop_manager.start()
+        self.product_configure()
+        self.components._start(self._ioloop)
+        self.capture_init()
         return self
 
     def disconnect(self):
-        pass
+        self.capture_done()
+        self.product_deconfigure()
+        self.components._stop()
+        self._ioloop_manager.stop()
+        self._ioloop_manager.join()
 
     def new_compound_scan(self):
         yield self
