@@ -3,6 +3,20 @@ import argparse
 from katcp.ioloop_manager import IOLoopManager
 
 
+class CaptureState(object):
+    """State of data capturing subsystem."""
+    UNKNOWN = 0
+    UNCONFIGURED = 10
+    CONFIGURED = 20
+    INITED = 30
+    STARTED = 40
+
+    @classmethod
+    def name(cls, code):
+        states = [v for v in vars(cls) if not v.startswith('_') and v != 'name']
+        return dict((getattr(cls, s), s) for s in states)[code]
+
+
 class CaptureSession(object):
     """Capturing a single subarray product."""
     def __init__(self, components):
@@ -15,12 +29,14 @@ class CaptureSession(object):
 
     def __enter__(self):
         """Enter context."""
-        self.capture_start()
+        if self._initial_state < CaptureState.STARTED:
+            self.capture_start()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Exit context."""
-        self.capture_stop()
+        if self._initial_state < CaptureState.STARTED:
+            self.capture_stop()
         self.disconnect()
         # Don't suppress exceptions
         return False
@@ -44,14 +60,17 @@ class CaptureSession(object):
         self._ioloop = self._ioloop_manager.get_ioloop()
         self._ioloop.make_current()
         self._ioloop_manager.start()
-        self.product_configure()
+        self._initial_state = self.product_configure(args)
         self.components._start(self._ioloop)
-        self.capture_init()
+        if self._initial_state < CaptureState.INITED:
+            self.capture_init()
         return self
 
     def disconnect(self):
-        self.capture_done()
-        self.product_deconfigure()
+        if self._initial_state < CaptureState.INITED:
+            self.capture_done()
+        if self._initial_state < CaptureState.CONFIGURED:
+            self.product_deconfigure()
         self.components._stop()
         self._ioloop_manager.stop()
         self._ioloop_manager.join()
