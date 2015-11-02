@@ -1,5 +1,6 @@
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
-                                   ThreadSafeKATCPClientResourceWrapper)
+                                   ThreadSafeKATCPClientResourceWrapper,
+                                   TimeoutError)
 
 from kattelmod.telstate import endpoint_parser
 
@@ -83,7 +84,7 @@ class KATCPComponent(Component):
         if self._started:
             return
         super(KATCPComponent, self)._start(ioloop)
-        resource_spec = dict(name=str(self.__class__), controlled=True,
+        resource_spec = dict(name=self._name, controlled=True,
                              address=(self._endpoint.host, self._endpoint.port))
         async_client = KATCPClientResource(resource_spec)
         async_client.set_ioloop(ioloop)
@@ -92,7 +93,11 @@ class KATCPComponent(Component):
         wrapped_ioloop.default_timeout = 1
         self._client = ThreadSafeKATCPClientResourceWrapper(async_client,
                                                             wrapped_ioloop)
-        self._client.until_synced()
+        try:
+            self._client.until_synced()
+        except TimeoutError:
+            raise TimeoutError("Timed out trying to connect '{}' to client '{}'"
+                               .format(self._name, self._endpoint))
 
     def _stop(self):
         if not self._started:
