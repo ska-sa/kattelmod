@@ -1,4 +1,4 @@
-from kattelmod.session import CaptureState, CaptureSession as BaseCaptureSession
+from kattelmod.session import CaptureSession as BaseCaptureSession
 from kattelmod.telstate import TelescopeState, FakeTelescopeState
 
 

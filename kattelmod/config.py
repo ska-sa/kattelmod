@@ -1,5 +1,5 @@
 import os.path
-from ConfigParser import SafeConfigParser, NoSectionError, Error
+from ConfigParser import SafeConfigParser, Error
 from importlib import import_module
 
 import numpy as np

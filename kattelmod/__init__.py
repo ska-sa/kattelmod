@@ -16,4 +16,4 @@ def session_from_commandline():
     return session_from_config(args.config)
 
 # Keep API clean when inspected by user via e.g. IPython
-del session, config, s
+del s
