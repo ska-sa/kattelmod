@@ -6,6 +6,10 @@ from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
 from kattelmod.telstate import endpoint_parser
 
 
+# Minimum time that has to elapse before periodic sensor values are sent again
+SENSOR_PERIOD = 0.4
+
+
 class Component(object):
     """Basic element of telescope system that provides monitoring and control."""
     def __init__(self):
@@ -50,13 +54,15 @@ class TelstateUpdatingComponent(Component):
         self._telstate = None
         self._elapsed_time = 0.0
         self._last_update = 0.0
+        self._last_periodic_send = 0.0
         super(TelstateUpdatingComponent, self).__init__()
 
     def __setattr__(self, attr_name, value):
         object.__setattr__(self, attr_name, value)
         # Default strategy for sensor updates:
-        # event-rate 0.4 for position sensors and standard event for the rest
-        time_to_send = not attr_name.startswith('pos_') or self._elapsed_time > 0.4
+        # event-rate SENSOR_PERIOD for position sensors and standard event for rest
+        time_to_send = not attr_name.startswith('pos_') or \
+                       self._last_periodic_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
             print "telstate", sensor_name, value
@@ -67,6 +73,8 @@ class TelstateUpdatingComponent(Component):
         self._elapsed_time = timestamp - self._last_update \
                              if self._last_update else 0.0
         self._last_update = timestamp
+        if timestamp - self._last_periodic_send > SENSOR_PERIOD:
+            self._last_periodic_send = timestamp
 
     def _start(self, ioloop):
         if self._started:
