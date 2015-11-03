@@ -57,9 +57,10 @@ def session_from_config(config_file):
             comp_name = comp_name[:-1]
             names = []
             for initial, final in cfg.items(comp_name):
-                if not initial.endswith('+'):
-                    continue
-                names += [initial[:-1] + f for f in final if f in '0123456789']
+                if initial == 'names':
+                    names += final.split(',')
+                elif initial.endswith('+'):
+                    names += [initial[:-1] + f for f in final if f in '0123456789']
         else:
             names = [comp_name]
         comps = []

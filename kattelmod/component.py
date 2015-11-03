@@ -50,8 +50,7 @@ class TelstateUpdatingComponent(Component):
         object.__setattr__(self, attr_name, value)
         # Default strategy for sensor updates:
         # event-rate 0.4 for position sensors and standard event for the rest
-        time_to_send = self._elapsed_time > 0.4 \
-                       if attr_name.startswith('pos_') else True
+        time_to_send = not attr_name.startswith('pos_') or self._elapsed_time > 0.4
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
             print "telstate", sensor_name, value
