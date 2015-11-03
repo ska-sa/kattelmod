@@ -1,3 +1,4 @@
+import logging
 import collections
 import argparse
 
@@ -16,6 +17,38 @@ class CaptureState(object):
     def name(cls, code):
         states = [v for v in vars(cls) if not v.startswith('_') and v != 'name']
         return dict((getattr(cls, s), s) for s in states)[code]
+
+
+class ScriptLogHandler(logging.Handler):
+    """Logging handler that writes observation log records to obs component.
+
+    Parameters
+    ----------
+    obs : :class:`kattelmod.component.Component` object
+        Observation component for the session
+
+    """
+    def __init__(self, obs):
+        logging.Handler.__init__(self)
+        self.obs = obs
+        self.busy_emitting = False
+
+    def emit(self, record):
+        """Emit a logging record."""
+        # Do not emit from within emit()
+        # This occurs when the script_log setting fails and logs an error itself
+        if self.busy_emitting:
+            return
+        try:
+            self.busy_emitting = True
+            msg = self.format(record)
+            self.obs.script_log = msg
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+        finally:
+            self.busy_emitting = False
 
 
 class ObsParams(collections.MutableMapping):
@@ -75,6 +108,15 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self.targets = targets
         self._ioloop = self._ioloop_manager = None
+        # Enable logging (using same formatting and filtering as existing logger)
+        self.logger = logging.getLogger('kat.session')
+        if hasattr(self, 'obs'):
+            self._script_log_handler = ScriptLogHandler(self.obs)
+            if len(self.logger.handlers) > 0:
+                first_handler = self.logger.handlers[0]
+                self._script_log_handler.setLevel(first_handler.level)
+                self._script_log_handler.setFormatter(first_handler.formatter)
+            self.logger.addHandler(self._script_log_handler)
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
 
     def __enter__(self):
