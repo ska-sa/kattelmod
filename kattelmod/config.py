@@ -18,7 +18,10 @@ def _create_component(cfg, system, comp_name, comp_type, **kwargs):
     params = {k: np.safe_eval(v) for k, v in cfg.items(comp_name)} \
              if cfg.has_section(comp_name) else {}
     params.update(kwargs)
-    comp = Component(**params)
+    try:
+        comp = Component(**params)
+    except TypeError as e:
+        raise TypeError('Could not construct {}: {}'.format(Component._type(), e))
     comp._name = comp_name
     return comp
 

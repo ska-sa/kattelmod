@@ -12,10 +12,13 @@ class Component(object):
         self._immutables = []
         self._started = False
 
+    @classmethod
+    def _type(cls):
+        module = cls.__module__.replace('kattelmod.systems.', '')
+        return "{}.{}".format(module, cls.__name__)
+
     def __repr__(self):
-        module = self.__class__.__module__.replace('kattelmod.systems.', '')
-        comp = self.__class__.__name__
-        return "<{}.{} '{}' at {}>".format(module, comp, self._name, id(self))
+        return "<{} '{}' at {}>".format(self._type(), self._name, id(self))
 
     def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
@@ -156,11 +159,8 @@ class MultiComponent(Component):
 
     def __repr__(self):
         if len(self._comps) > 0:
-            comp_types = ['{}.{}'.format(comp.__class__.__module__,
-                                         comp.__class__.__name__)
-                          for comp in self._comps]
-            comp_type = comp_types[0].replace('kattelmod.systems.', '') \
-                        if len(set(comp_types)) == 1 else 'Component'
+            comp_types = [comp._type() for comp in self._comps]
+            comp_type = comp_types[0] if len(set(comp_types)) == 1 else 'Component'
             comps = " with {} {}".format(len(self._comps), comp_type)
             comps = comps + 's' if len(self._comps) > 1 else comps
         else:
