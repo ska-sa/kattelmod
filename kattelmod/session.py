@@ -19,14 +19,14 @@ class CaptureState(object):
 
 class CaptureSession(object):
     """Capturing a single subarray product."""
-    def __init__(self, components):
+    def __init__(self, components=(), targets=True):
         self.components = components
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self.targets = True
+        self.targets = targets
         self._ioloop = self._ioloop_manager = None
-        self.label = self.obs.label
+        self.label = self.obs.label if hasattr(self, 'obs') else ''
 
     def __enter__(self):
         """Enter context."""
@@ -44,7 +44,7 @@ class CaptureSession(object):
 
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)
-        parser.add_argument('--config', default='mkat/sim_60ant.cfg')
+        parser.add_argument('--config', default='mkat/fake_rts.cfg')
         parser.add_argument('--description')
         parser.add_argument('--dump-rate', type=float, default=2.0)
         if self.targets:
