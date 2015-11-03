@@ -26,6 +26,7 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self.targets = True
         self._ioloop = self._ioloop_manager = None
+        self.label = self.obs.label
 
     def __enter__(self):
         """Enter context."""
@@ -78,8 +79,18 @@ class CaptureSession(object):
     def new_compound_scan(self):
         yield self
 
-    def label(self, label):
-        pass
+    @property
+    def target(self):
+        return self.cbf.target if hasattr(self, 'cbf') else self.ants[0].target
+    @target.setter
+    def target(self, target):
+        self.ants.target = target
+        if hasattr(self, 'cbf'):
+            self.cbf.target = target
+
+    @property
+    def observer(self):
+        return self.cbf.observer if hasattr(self, 'cbf') else self.ants[0].observer
 
     def track(self, target, duration):
         pass

@@ -18,5 +18,5 @@ with session.connect(args):
     for target in session.targets:
         # Start a new compound scan (skip if dish will hit horizon or azimuth wrap)
         for compscan in session.new_compound_scan():
-            compscan.label('track')
+            compscan.label = 'track'
             compscan.track(target, duration=args.track_duration)
