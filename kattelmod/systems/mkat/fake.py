@@ -1,6 +1,6 @@
 """Components for a fake telescope."""
 
-from kattelmod.component import TelstateUpdatingComponent
+from kattelmod.component import TelstateUpdatingComponent, TargetObserverMixin
 from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
                       construct_azel_target)
 
@@ -12,7 +12,7 @@ class Subarray(TelstateUpdatingComponent):
         self._initialise_attributes(locals())
 
 
-class AntennaPositioner(TelstateUpdatingComponent):
+class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
     def __init__(self, observer='',
                  real_az_min_deg=-185, real_az_max_deg=275,
                  real_el_min_deg=15, real_el_max_deg=92,
@@ -26,20 +26,14 @@ class AntennaPositioner(TelstateUpdatingComponent):
         self.pos_actual_scan_elev = self.pos_request_scan_elev = 90.0
 
     @property
-    def observer(self):
-        return self._observer
-    @observer.setter
-    def observer(self, observer):
-        self._observer = Antenna(observer) if observer else None
-
-    @property
     def target(self):
         return self._target
     @target.setter
     def target(self, target):
-        self._target = Target(target) if target else None
-        if self.activity in ('scan', 'track', 'slew'):
+        new_target = Target(target, antenna=self._observer) if target else None
+        if new_target != self._target and self.activity in ('scan', 'track', 'slew'):
             self.activity = 'slew' if self._target else 'stop'
+        self._target = new_target
 
     def _update(self, timestamp):
         super(AntennaPositioner, self)._update(timestamp)
@@ -91,30 +85,27 @@ class Environment(TelstateUpdatingComponent):
         self.wind_direction = 90.0
 
 
-class CorrelatorBeamformer(TelstateUpdatingComponent):
-    def __init__(self, product, n_chans, n_accs, n_bls, bls_ordering, bandwidth,
-                 sync_time, int_time, scale_factor_timestamp, observer):
+class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
+    def __init__(self, product='c856M4k', n_chans=4096, n_accs=104448,
+                 bls_ordering=[], bandwidth=856000000.0, sync_time=1443692800,
+                 int_time=0.49978856074766354, scale_factor_timestamp=1712000000,
+                 center_freq=1284000000.0, observer=''):
         super(CorrelatorBeamformer, self).__init__()
         self._initialise_attributes(locals())
-        self.target = 'Zenith, azel, 0, 90'
+        self.target = ''
         self.auto_delay_enabled = True
-
-    @property
-    def observer(self):
-        return self._observer
-    @observer.setter
-    def observer(self, observer):
-        self._observer = Antenna(observer) if observer else None
-
-    @property
-    def target(self):
-        return self._target
-    @target.setter
-    def target(self, target):
-        self._target = Target(target, antenna=self._observer) if target else None
 
 
 class ScienceDataProcessor(TelstateUpdatingComponent):
     def __init__(self):
         super(ScienceDataProcessor, self).__init__()
         self._initialise_attributes(locals())
+
+
+class Observation(TelstateUpdatingComponent):
+    def __init__(self):
+        super(Observation, self).__init__()
+        self._initialise_attributes(locals())
+        self.label = ''
+        self.params = {}
+        self.script_log = ''

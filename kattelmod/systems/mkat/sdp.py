@@ -1,8 +1,9 @@
 """Components for a standalone version of the SDP subsystem."""
 
-from kattelmod.component import KATCPComponent, TelstateUpdatingComponent
+from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
+                                 TargetObserverMixin)
 from kattelmod.session import CaptureState
-from katpoint import Target
+from kattelmod.systems.mkat.fake import Observation
 
 
 class ConnectionError(IOError):
@@ -13,19 +14,12 @@ class ConfigurationError(ValueError):
     """Failed to configure SDP product."""
 
 
-class CorrelatorBeamformer(TelstateUpdatingComponent):
+class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
     def __init__(self):
         super(CorrelatorBeamformer, self).__init__()
         self._initialise_attributes(locals())
-        self.target = 'Zenith, azel, 0, 90'
+        self.target = ''
         self.auto_delay_enabled = True
-
-    @property
-    def target(self):
-        return self._target
-    @target.setter
-    def target(self, target):
-        self._target = Target(target) if target else None
 
     def capture_start(self):
         pass
@@ -88,12 +82,3 @@ class ScienceDataProcessor(KATCPComponent):
     def capture_done(self):
         self._validate()
         self._client.req.capture_done(self.subarray_product, timeout=10)
-
-
-class Observation(TelstateUpdatingComponent):
-    def __init__(self):
-        super(Observation, self).__init__()
-        self._initialise_attributes(locals())
-        self.label = ''
-        self.params = {}
-        self.script_log = ''

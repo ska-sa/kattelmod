@@ -1,3 +1,4 @@
+from katpoint import Antenna, Target
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
                                    ThreadSafeKATCPClientResourceWrapper,
                                    TimeoutError)
@@ -168,3 +169,27 @@ class MultiComponent(Component):
 
     def __iter__(self):
         return iter(self._comps)
+
+
+class TargetObserverMixin(object):
+    """Add Target and Observer properties to any component."""
+    def __init__(self):
+        # NB to call super() here - see "The Sadness of Python's super()"
+        super(TargetObserverMixin, self).__init__()
+        self._observer = self._target = None
+
+    @property
+    def observer(self):
+        return self._observer
+    @observer.setter
+    def observer(self, observer):
+        self._observer = Antenna(observer) if observer else None
+        if self._target:
+            self._target.antenna = self._observer
+
+    @property
+    def target(self):
+        return self._target
+    @target.setter
+    def target(self, target):
+        self._target = Target(target, antenna=self._observer) if target else None
