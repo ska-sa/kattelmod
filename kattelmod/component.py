@@ -175,6 +175,9 @@ class MultiComponent(Component):
     def __iter__(self):
         return iter(self._comps)
 
+    def __getitem__(self, key):
+        return self._comps[key] if isinstance(key, int) else getattr(self, key)
+
 
 class TargetObserverMixin(object):
     """Add Target and Observer properties to any component."""

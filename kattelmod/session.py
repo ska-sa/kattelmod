@@ -26,7 +26,6 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self.targets = targets
         self._ioloop = self._ioloop_manager = None
-        self.label = self.obs.label if hasattr(self, 'obs') else ''
 
     def __enter__(self):
         """Enter context."""
@@ -80,17 +79,27 @@ class CaptureSession(object):
         yield self
 
     @property
+    def label(self):
+        return self.obs.label
+    @label.setter
+    def label(self, label):
+        self.obs.label = label
+
+    @property
     def target(self):
-        return self.cbf.target if hasattr(self, 'cbf') else self.ants[0].target
+        return self.cbf.target if hasattr(self, 'cbf') else \
+               self.ants[0].target if hasattr(self, 'ants') else None
     @target.setter
     def target(self, target):
-        self.ants.target = target
+        if hasattr(self, 'ants'):
+            self.ants.target = target
         if hasattr(self, 'cbf'):
             self.cbf.target = target
 
     @property
     def observer(self):
-        return self.cbf.observer if hasattr(self, 'cbf') else self.ants[0].observer
+        return self.cbf.observer if hasattr(self, 'cbf') else \
+               self.ants[0].observer if hasattr(self, 'ants') else None
 
     def track(self, target, duration):
         pass
