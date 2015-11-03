@@ -1,8 +1,9 @@
 """Components for a fake telescope."""
 
+from katpoint import Target, rad2deg, deg2rad, wrap_angle, construct_azel_target
+
 from kattelmod.component import TelstateUpdatingComponent, TargetObserverMixin
-from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
-                      construct_azel_target)
+from kattelmod.session import CaptureState
 
 
 class Subarray(TelstateUpdatingComponent):
@@ -94,12 +95,20 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self.target = ''
         self.auto_delay_enabled = True
+        self._add_dummy_methods('capture_start capture_stop')
 
 
 class ScienceDataProcessor(TelstateUpdatingComponent):
     def __init__(self):
         super(ScienceDataProcessor, self).__init__()
         self._initialise_attributes(locals())
+        self._add_dummy_methods('product_deconfigure capture_init capture_done')
+
+    def product_configure(self, product, dump_rate, receptors, sub_nr):
+        return CaptureState.STARTED
+
+    def get_telstate(self):
+        return ''
 
 
 class Observation(TelstateUpdatingComponent):

@@ -29,6 +29,11 @@ class Component(object):
         for name, value in params.items():
             setattr(self, name, value)
 
+    def _add_dummy_methods(self, names, func=None):
+        for name in names.split(' '):
+            setattr(self.__class__, name.strip(),
+                    func if func else lambda self: None)
+
     def _start(self, ioloop):
         self._started = True
 
@@ -68,9 +73,9 @@ class TelstateUpdatingComponent(Component):
             return
         super(TelstateUpdatingComponent, self)._start(ioloop)
         # Reassign values to object attributes to trigger output to telstate
-        for attr_name in vars(self):
-            if not attr_name.startswith('_'):
-                setattr(self, attr_name, getattr(self, attr_name))
+        for name in dir(self):
+            if not name.startswith('_') and not callable(getattr(self, name)):
+                setattr(self, name, getattr(self, name))
 
 
 class KATCPComponent(Component):

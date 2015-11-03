@@ -1,5 +1,5 @@
 from kattelmod.session import CaptureState, CaptureSession as BaseCaptureSession
-from kattelmod.telstate import TelescopeState
+from kattelmod.telstate import TelescopeState, FakeTelescopeState
 
 
 class CaptureSession(BaseCaptureSession):
@@ -17,7 +17,8 @@ class CaptureSession(BaseCaptureSession):
             endpoint = self.sdp.get_telstate()
         else:
             endpoint = ''
-        return TelescopeState(endpoint) if endpoint else None
+        return None if not endpoint else TelescopeState(endpoint) \
+               if endpoint != 'fake' else FakeTelescopeState()
 
     def product_configure(self, args):
         if all(hasattr(self, comp) for comp in ('sub', 'sdp', 'ants')):
