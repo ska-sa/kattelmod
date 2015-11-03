@@ -1,3 +1,4 @@
+import collections
 import argparse
 
 from katcp.ioloop_manager import IOLoopManager
@@ -17,6 +18,54 @@ class CaptureState(object):
         return dict((getattr(cls, s), s) for s in states)[code]
 
 
+class ObsParams(collections.MutableMapping):
+    """Dictionary-ish that writes observation parameters to obs component.
+
+    Parameters
+    ----------
+    obs : :class:`kattelmod.component.Component` object
+        Observation component for the session
+
+    Notes
+    -----
+    This is based on the collections.MutableMapping abstract base class instead
+    of dict itself. This ensures that dict is properly extended by containing
+    a dict inside ObsParams instead of deriving from it. The problem is that
+    methods such as dict.update() do not honour custom __setitem__ methods.
+
+    """
+    def __init__(self, obs):
+        self._dict = dict()
+        self.obs = obs
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
+    def __setitem__(self, key, value):
+        """Set item both in dictionary and component."""
+        self.obs.params = "{} {}".format(key, repr(value))
+        self._dict[key] = value
+
+    def __delitem__(self, key):
+        self.obs.params = key
+        del self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __contains__(self, key):
+        return key in self._dict
+
+    def __str__(self):
+        return str(self._dict)
+
+    def __repr__(self):
+        return repr(self._dict)
+
+
 class CaptureSession(object):
     """Capturing a single subarray product."""
     def __init__(self, components=(), targets=True):
@@ -26,6 +75,7 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self.targets = targets
         self._ioloop = self._ioloop_manager = None
+        self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
 
     def __enter__(self):
         """Enter context."""

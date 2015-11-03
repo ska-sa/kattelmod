@@ -116,5 +116,5 @@ class Observation(TelstateUpdatingComponent):
         super(Observation, self).__init__()
         self._initialise_attributes(locals())
         self.label = ''
-        self.params = {}
+        self.params = ''
         self.script_log = ''
