@@ -143,6 +143,7 @@ class CaptureSession(object):
         parser.add_argument('--config', default='mkat/fake_rts.cfg')
         parser.add_argument('--description')
         parser.add_argument('--dump-rate', type=float, default=2.0)
+        parser.add_argument('--dont-stop', action='store_true')
         if self.targets:
             parser.add_argument('targets', metavar='target', nargs='+')
         return parser
@@ -150,27 +151,35 @@ class CaptureSession(object):
     def collect_targets(self, targets):
         return list(targets)
 
-    def connect(self, args):
-        if self.targets:
-            self.targets = self.collect_targets(args.targets)
+    def _start(self, args):
         self._ioloop_manager = IOLoopManager()
         self._ioloop = self._ioloop_manager.get_ioloop()
         self._ioloop.make_current()
         self._ioloop_manager.start()
         self._initial_state = self.product_configure(args)
         self.components._start(self._ioloop)
-        if self._initial_state < CaptureState.INITED:
-            self.capture_init()
-        return self
 
-    def disconnect(self):
-        if self._initial_state < CaptureState.INITED:
-            self.capture_done()
+    def _stop(self):
         if self._initial_state < CaptureState.CONFIGURED:
             self.product_deconfigure()
         self.components._stop()
         self._ioloop_manager.stop()
         self._ioloop_manager.join()
+
+    def connect(self, args):
+        self._start(args)
+        if self._initial_state < CaptureState.INITED:
+            self.capture_init()
+        self.obs_params.update(vars(args))
+        if self.targets:
+            self.targets = self.collect_targets(args.targets)
+        return self
+
+    def disconnect(self):
+        if self._initial_state < CaptureState.INITED:
+            self.capture_done()
+        if not self.obs_params['dont_stop']:
+            self._stop()
 
     def new_compound_scan(self):
         yield self
