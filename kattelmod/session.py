@@ -1,8 +1,13 @@
 import logging
 import collections
 import argparse
+import time
 
 from katcp.ioloop_manager import IOLoopManager
+
+
+# Period of component updates, in seconds
+JIFFY = 0.1
 
 
 class CaptureState(object):
@@ -194,7 +199,24 @@ class CaptureSession(object):
                self.ants[0].observer if hasattr(self, 'ants') else None
 
     def track(self, target, duration):
-        pass
+        self.target = target
+        if not hasattr(self, 'ants'):
+            time.sleep(duration)
+            return
+        self.ants.activity = 'slew'
+        self.logger.info('slewing to target')
+        # Wait until we are on target
+        while set(ant.activity for ant in self.ants) != set(['track']):
+            time.sleep(JIFFY)
+            self.components._update(time.time())
+        self.logger.info('target reached')
+        # Stay on target for desired time
+        self.logger.info('tracking target')
+        end_time = time.time() + duration
+        while time.time() < end_time:
+            time.sleep(JIFFY)
+            self.components._update(time.time())
+        self.logger.info('target tracked for {} seconds'.format(duration))
 
 """
     time
