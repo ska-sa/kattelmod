@@ -77,7 +77,7 @@ class ScienceDataProcessor(KATCPComponent):
 
     def capture_init(self):
         self._validate()
-        self._client.req.capture_init(self.subarray_product)
+        self._client.req.capture_init(self.subarray_product, timeout=10)
 
     def capture_done(self):
         self._validate()
