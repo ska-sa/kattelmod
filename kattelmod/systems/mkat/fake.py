@@ -72,7 +72,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
         self.pos_request_scan_elev = requested_el
         self.pos_actual_scan_azim = az
         self.pos_actual_scan_elev = el
-        print 'elapsed: %g, max_daz: %g, max_del: %g, daz: %g, del: %g, error: %g' % (elapsed_time, max_delta_az, max_delta_el, delta_az, delta_el, error)
+        # print 'elapsed: %g, max_daz: %g, max_del: %g, daz: %g, del: %g, error: %g' % (elapsed_time, max_delta_az, max_delta_el, delta_az, delta_el, error)
 
 
 class Environment(TelstateUpdatingComponent):

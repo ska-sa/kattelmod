@@ -13,6 +13,14 @@ def is_rate_limited(sensor_name):
     """Test whether sensor will have rate-limited updates."""
     return sensor_name.startswith('pos_')
 
+def _sensor_transform(sensor_value):
+    """Extract appropriate representation for sensors to put in telstate."""
+    # Katpoint objects used to be averse to pickling but we also want to match
+    # what CAM puts into telstate, which are description strings
+    custom = {Antenna: lambda obj: obj.description,
+              Target: lambda obj: obj.description}
+    return custom.get(sensor_value.__class__, lambda obj: obj)(sensor_value)
+
 
 class Component(object):
     """Basic element of telescope system that provides monitoring and control."""
@@ -68,9 +76,9 @@ class TelstateUpdatingComponent(Component):
                        self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
-            print "telstate", sensor_name, value
-            # self._telstate.add(sensor_name, value,
-            #                    immutable=attr_name in self._immutables)
+            # print "telstate", sensor_name, _sensor_transform(value)
+            self._telstate.add(sensor_name, _sensor_transform(value),
+                               immutable=attr_name in self._immutables)
 
     def _update(self, timestamp):
         self._elapsed_time = timestamp - self._last_update \
