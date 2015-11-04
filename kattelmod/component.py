@@ -6,8 +6,12 @@ from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
 from kattelmod.telstate import endpoint_parser
 
 
-# Minimum time that has to elapse before periodic sensor values are sent again
-SENSOR_PERIOD = 0.4
+# Minimum time that has to elapse before rate-limited sensor values are sent again
+SENSOR_MIN_PERIOD = 0.4
+
+def is_rate_limited(sensor_name):
+    """Test whether sensor will have rate-limited updates."""
+    return sensor_name.startswith('pos_')
 
 
 class Component(object):
@@ -54,15 +58,14 @@ class TelstateUpdatingComponent(Component):
         self._telstate = None
         self._elapsed_time = 0.0
         self._last_update = 0.0
-        self._last_periodic_send = 0.0
+        self._last_rate_limited_send = 0.0
         super(TelstateUpdatingComponent, self).__init__()
 
     def __setattr__(self, attr_name, value):
         object.__setattr__(self, attr_name, value)
-        # Default strategy for sensor updates:
-        # event-rate SENSOR_PERIOD for position sensors and standard event for rest
-        time_to_send = not attr_name.startswith('pos_') or \
-                       self._last_periodic_send == self._last_update
+        # Do sensor updates (either event or event-rate SENSOR_MIN_PERIOD)
+        time_to_send = not is_rate_limited(attr_name) or \
+                       self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
             print "telstate", sensor_name, value
@@ -73,8 +76,8 @@ class TelstateUpdatingComponent(Component):
         self._elapsed_time = timestamp - self._last_update \
                              if self._last_update else 0.0
         self._last_update = timestamp
-        if timestamp - self._last_periodic_send > SENSOR_PERIOD:
-            self._last_periodic_send = timestamp
+        if timestamp - self._last_rate_limited_send > SENSOR_MIN_PERIOD:
+            self._last_rate_limited_send = timestamp
 
     def _start(self, ioloop):
         if self._started:
