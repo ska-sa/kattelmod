@@ -18,7 +18,7 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
     def __init__(self):
         super(CorrelatorBeamformer, self).__init__()
         self._initialise_attributes(locals())
-        self.target = ''
+        self.target = 'Zenith, azel, 0, 90'
         self.auto_delay_enabled = True
 
     def capture_start(self):
@@ -58,7 +58,7 @@ class ScienceDataProcessor(KATCPComponent):
         initial_state = self.get_capturestate(subarray_product)
         prod_conf = self._client.req.data_product_configure
         msg = prod_conf(subarray_product, receptors, channels, dump_rate,
-                        0, self.cbf_spead, ':7147', timeout=10)
+                        0, self.cbf_spead, ':7147', timeout=20)
         if not msg.succeeded:
             raise ConfigurationError("Failed to configure product: " +
                                      msg.reply.arguments[1])
