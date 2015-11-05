@@ -113,16 +113,9 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self.targets = targets
         self._ioloop = self._ioloop_manager = None
-        # Enable logging (using same formatting and filtering as existing logger)
-        self.logger = logging.getLogger('kat.session')
-        if hasattr(self, 'obs'):
-            self._script_log_handler = ScriptLogHandler(self.obs)
-            if len(self.logger.handlers) > 0:
-                first_handler = self.logger.handlers[0]
-                self._script_log_handler.setLevel(first_handler.level)
-                self._script_log_handler.setFormatter(first_handler.formatter)
-            self.logger.addHandler(self._script_log_handler)
+        self._script_log_handler = self._root_log_handler = None
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
+        self.logger = logging.getLogger('kat.session')
 
     def __enter__(self):
         """Enter context."""
@@ -143,6 +136,7 @@ class CaptureSession(object):
         parser.add_argument('--config', default='mkat/fake_rts.cfg')
         parser.add_argument('--description')
         parser.add_argument('--dump-rate', type=float, default=2.0)
+        parser.add_argument('--log-level', default='INFO')
         parser.add_argument('--dont-stop', action='store_true')
         if self.targets:
             parser.add_argument('targets', metavar='target', nargs='+')
@@ -151,11 +145,38 @@ class CaptureSession(object):
     def collect_targets(self, targets):
         return list(targets)
 
+    def _setup_logging(self, args):
+        self.logger.setLevel(args.log_level)
+        # Script log formatter has UT timestamps
+        fmt='%(asctime)s.%(msecs)dZ %(levelname)-8s %(message)s'
+        formatter = logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')
+        formatter.converter = time.gmtime
+        # Add special script log handler
+        if hasattr(self, 'obs'):
+            self._script_log_handler = ScriptLogHandler(self.obs)
+            self._script_log_handler.setLevel(args.log_level)
+            self._script_log_handler.setFormatter(formatter)
+            self.logger.addHandler(self._script_log_handler)
+        # Add root handler if none exists - similar to logging.basicConfig()
+        if not logging.root.handlers:
+            self._root_log_handler = logging.StreamHandler()
+            logging.root.addHandler(self._root_log_handler)
+        for handler in logging.root.handlers:
+            handler.setLevel(args.log_level)
+            handler.setFormatter(formatter)
+
+    def _teardown_logging(self):
+        if self._script_log_handler:
+            self.logger.removeHandler(self._script_log_handler)
+        if self._root_log_handler:
+            logging.root.removeHandler(self._root_log_handler)
+
     def _start(self, args):
         self._ioloop_manager = IOLoopManager()
         self._ioloop = self._ioloop_manager.get_ioloop()
         self._ioloop.make_current()
         self._ioloop_manager.start()
+        self._setup_logging(args)
         self._initial_state = self.product_configure(args)
         self.components._start(self._ioloop)
 
@@ -163,6 +184,7 @@ class CaptureSession(object):
         if self._initial_state < CaptureState.CONFIGURED:
             self.product_deconfigure()
         self.components._stop()
+        self._teardown_logging()
         self._ioloop_manager.stop()
         self._ioloop_manager.join()
 
