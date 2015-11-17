@@ -76,7 +76,7 @@ class TelstateUpdatingComponent(Component):
                        self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
-            # print "telstate", sensor_name, _sensor_transform(value)
+            print "telstate", sensor_name, _sensor_transform(value)
             self._telstate.add(sensor_name, _sensor_transform(value),
                                immutable=attr_name in self._immutables)
 
