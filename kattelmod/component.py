@@ -27,7 +27,7 @@ class Component(object):
     def __init__(self):
         self._name = ''
         self._immutables = []
-        self._started = False
+        self._ioloop = None
 
     @classmethod
     def _type(cls):
@@ -51,10 +51,10 @@ class Component(object):
                     func if func else lambda self: None)
 
     def _start(self, ioloop):
-        self._started = True
+        self._ioloop = ioloop
 
     def _stop(self):
-        self._started = False
+        self._ioloop = None
 
     def _update(self, timestamp):
         pass
@@ -76,9 +76,14 @@ class TelstateUpdatingComponent(Component):
                        self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
-            print "telstate", sensor_name, _sensor_transform(value)
+            ts = self._ioloop.time()
+            # If this is initial sensor update, move it into recent past to
+            # avoid race conditions in e.g. CBF simulator that reads it
+            if not self._last_update:
+                ts -= 10.0
+            print "telstate", ts, sensor_name, _sensor_transform(value)
             self._telstate.add(sensor_name, _sensor_transform(value),
-                               immutable=attr_name in self._immutables)
+                               ts=ts, immutable=attr_name in self._immutables)
 
     def _update(self, timestamp):
         self._elapsed_time = timestamp - self._last_update \
@@ -88,7 +93,7 @@ class TelstateUpdatingComponent(Component):
             self._last_rate_limited_send = timestamp
 
     def _start(self, ioloop):
-        if self._started:
+        if self._ioloop:
             return
         super(TelstateUpdatingComponent, self)._start(ioloop)
         # Reassign values to object attributes to trigger output to telstate
@@ -108,7 +113,7 @@ class KATCPComponent(Component):
                              .format(endpoint))
 
     def _start(self, ioloop):
-        if self._started:
+        if self._ioloop:
             return
         super(KATCPComponent, self)._start(ioloop)
         resource_spec = dict(name=self._name, controlled=True,
@@ -127,7 +132,7 @@ class KATCPComponent(Component):
                                .format(self._name, self._endpoint))
 
     def _stop(self):
-        if not self._started:
+        if not self._ioloop:
             return
         if self._client:
             self._client.stop()
@@ -150,7 +155,7 @@ class MultiMethod(object):
 
 class MultiComponent(Component):
     """Combine multiple similar components into a single component."""
-    _not_shared = ('_name', '_immutables', '_started', '_comps')
+    _not_shared = ('_name', '_immutables', '_ioloop', '_comps')
 
     def __init__(self, name, comps):
         super(MultiComponent, self).__init__()
