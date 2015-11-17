@@ -20,12 +20,7 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'
         self.auto_delay_enabled = True
-
-    def capture_start(self):
-        pass
-
-    def capture_stop(self):
-        pass
+        self._add_dummy_methods('capture_start capture_stop')
 
 
 class ScienceDataProcessor(KATCPComponent):
