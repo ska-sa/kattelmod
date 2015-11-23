@@ -208,14 +208,14 @@ class TargetObserverMixin(object):
     def __init__(self):
         # NB to call super() here - see "The Sadness of Python's super()"
         super(TargetObserverMixin, self).__init__()
-        self._observer = self._target = None
+        self._observer = self._target = ''
 
     @property
     def observer(self):
         return self._observer
     @observer.setter
     def observer(self, observer):
-        self._observer = Antenna(observer) if observer else None
+        self._observer = Antenna(observer) if observer else ''
         if self._target:
             self._target.antenna = self._observer
 
@@ -224,4 +224,4 @@ class TargetObserverMixin(object):
         return self._target
     @target.setter
     def target(self, target):
-        self._target = Target(target, antenna=self._observer) if target else None
+        self._target = Target(target, antenna=self._observer) if target else ''

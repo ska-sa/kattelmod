@@ -31,7 +31,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
         return self._target
     @target.setter
     def target(self, target):
-        new_target = Target(target, antenna=self._observer) if target else None
+        new_target = Target(target, antenna=self._observer) if target else ''
         if new_target != self._target and self.activity in ('scan', 'track', 'slew'):
             self.activity = 'slew' if self._target else 'stop'
         self._target = new_target
