@@ -106,12 +106,12 @@ class ObsParams(collections.MutableMapping):
 
 class CaptureSession(object):
     """Capturing a single subarray product."""
-    def __init__(self, components=(), targets=False):
+    def __init__(self, components=()):
         self.components = components
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self.targets = targets
+        self.targets = False
         self._ioloop = self._ioloop_manager = None
         self._script_log_handler = self._root_log_handler = None
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}

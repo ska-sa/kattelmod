@@ -9,11 +9,13 @@ from kattelmod.config import session_from_config
 _systems_path = _path.dirname(kattelmod.systems.__file__)
 telescope_systems = [s for _, s, _ in _pkgutil.iter_modules([_systems_path])]
 
-def session_from_commandline():
+def session_from_commandline(targets=False):
     """Construct capture session from observation script parameters."""
     # Make dummy CaptureSession just to get --config entry from command line
-    args, other = CaptureSession(targets=False).argparser().parse_known_args()
-    return session_from_config(args.config)
+    args, other = CaptureSession().argparser().parse_known_args()
+    session = session_from_config(args.config)
+    session.targets = targets
+    return session
 
 # Keep API clean when inspected by user via e.g. IPython
 del s

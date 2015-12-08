@@ -3,7 +3,7 @@
 
 from kattelmod import session_from_commandline
 
-session = session_from_commandline()
+session = session_from_commandline(targets=True)
 parser = session.argparser(description='Track one or more targets for a specified time.')
 # Add experiment-specific options
 parser.add_argument('-t', '--track-duration', metavar='DURATION', type=float, default=20.0,
