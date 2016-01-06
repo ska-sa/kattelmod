@@ -3,8 +3,6 @@ import collections
 import argparse
 import time
 
-from katcp.ioloop_manager import IOLoopManager
-
 
 # Period of component updates, in seconds
 JIFFY = 0.1
@@ -112,7 +110,6 @@ class CaptureSession(object):
         for comp in components:
             setattr(self, comp._name, comp)
         self.targets = False
-        self._ioloop = self._ioloop_manager = None
         self._script_log_handler = self._root_log_handler = None
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
         self.logger = logging.getLogger('kat.session')
@@ -172,21 +169,15 @@ class CaptureSession(object):
             logging.root.removeHandler(self._root_log_handler)
 
     def _start(self, args):
-        self._ioloop_manager = IOLoopManager()
-        self._ioloop = self._ioloop_manager.get_ioloop()
-        self._ioloop.make_current()
-        self._ioloop_manager.start()
         self._setup_logging(args)
         self._initial_state = self.product_configure(args)
-        self.components._start(self._ioloop)
+        self.components._start()
 
     def _stop(self):
         if self._initial_state < CaptureState.CONFIGURED:
             self.product_deconfigure()
         self.components._stop()
         self._teardown_logging()
-        self._ioloop_manager.stop()
-        self._ioloop_manager.join()
 
     def connect(self, args=None):
         if args is None:

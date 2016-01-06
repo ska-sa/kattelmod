@@ -23,7 +23,7 @@ class CaptureSession(BaseCaptureSession):
     def product_configure(self, args):
         if all(hasattr(self, comp) for comp in ('sub', 'sdp', 'ants')):
             ants = [var for var in vars(self.ants) if not var.startswith('_')]
-            self.sdp._start(self._ioloop)
+            self.sdp._start()
             prod_conf = self.sdp.product_configure
             initial_state = prod_conf(self.sub.product, self.sub.dump_rate,
                                       ','.join(sorted(ants)), self.sub.sub_nr)

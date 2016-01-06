@@ -1,7 +1,10 @@
+import time
+
 from katpoint import Antenna, Target
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
                                    ThreadSafeKATCPClientResourceWrapper,
                                    TimeoutError)
+from katcp.ioloop_manager import IOLoopManager
 
 from kattelmod.telstate import endpoint_parser
 
@@ -27,7 +30,7 @@ class Component(object):
     def __init__(self):
         self._name = ''
         self._immutables = []
-        self._ioloop = None
+        self._started = False
 
     @classmethod
     def _type(cls):
@@ -50,20 +53,18 @@ class Component(object):
             setattr(self.__class__, name.strip(),
                     func if func else lambda self: None)
 
-    def _start(self, ioloop):
-        self._ioloop = ioloop
+    def _start(self):
+        self._started = True
 
     def _stop(self):
-        self._ioloop = None
-
-    def _update(self, timestamp):
-        pass
+        self._started = False
 
 
 class TelstateUpdatingComponent(Component):
     """Component that will update telstate when its attributes are set."""
     def __init__(self):
         self._telstate = None
+        self._clock = time
         self._elapsed_time = 0.0
         self._last_update = 0.0
         self._last_rate_limited_send = 0.0
@@ -76,7 +77,7 @@ class TelstateUpdatingComponent(Component):
                        self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
-            ts = self._ioloop.time()
+            ts = self._clock.time()
             # If this is initial sensor update, move it into recent past to
             # avoid race conditions in e.g. CBF simulator that reads it
             if not self._last_update:
@@ -92,10 +93,10 @@ class TelstateUpdatingComponent(Component):
         if timestamp - self._last_rate_limited_send > SENSOR_MIN_PERIOD:
             self._last_rate_limited_send = timestamp
 
-    def _start(self, ioloop):
-        if self._ioloop:
+    def _start(self):
+        if self._started:
             return
-        super(TelstateUpdatingComponent, self)._start(ioloop)
+        super(TelstateUpdatingComponent, self)._start()
         # Reassign values to object attributes to trigger output to telstate
         for name in dir(self):
             if not name.startswith('_') and not callable(getattr(self, name)):
@@ -111,11 +112,18 @@ class KATCPComponent(Component):
         if self._endpoint.port < 0:
             raise ValueError("Please specify port for KATCP client '{}'"
                              .format(endpoint))
+        # Each KATCP component will have its own IOLoop, which is not great,
+        # but this is tolerable since there is currently only one instance
+        # of this component (sdp.ScienceDataProcessor)
+        self._ioloop_manager = IOLoopManager()
 
-    def _start(self, ioloop):
-        if self._ioloop:
+    def _start(self):
+        if self._started:
             return
-        super(KATCPComponent, self)._start(ioloop)
+        super(KATCPComponent, self)._start()
+        ioloop = self._ioloop_manager.get_ioloop()
+        ioloop.make_current()
+        self._ioloop_manager.start()
         resource_spec = dict(name=self._name, controlled=True,
                              address=(self._endpoint.host, self._endpoint.port))
         async_client = KATCPClientResource(resource_spec)
@@ -132,10 +140,12 @@ class KATCPComponent(Component):
                                .format(self._name, self._endpoint))
 
     def _stop(self):
-        if not self._ioloop:
+        if not self._started:
             return
         if self._client:
             self._client.stop()
+        self._ioloop_manager.stop()
+        self._ioloop_manager.join()
         super(KATCPComponent, self)._stop()
 
 
@@ -155,7 +165,7 @@ class MultiMethod(object):
 
 class MultiComponent(Component):
     """Combine multiple similar components into a single component."""
-    _not_shared = ('_name', '_immutables', '_ioloop', '_comps')
+    _not_shared = ('_name', '_immutables', '_started', '_comps')
 
     def __init__(self, name, comps):
         super(MultiComponent, self).__init__()
