@@ -3,6 +3,8 @@ import collections
 import argparse
 import time
 
+from kattelmod.updater import WarpClock, PeriodicUpdaterThread
+
 
 # Period of component updates, in seconds
 JIFFY = 0.1
@@ -102,6 +104,18 @@ class ObsParams(collections.MutableMapping):
         return repr(self._dict)
 
 
+def flatten(obj):
+    """http://rightfootin.blogspot.co.za/2006/09/more-on-python-flatten.html"""
+    try:
+        it = iter(obj)
+    except TypeError:
+        yield obj
+    else:
+        for e in it:
+            for f in flatten(e):
+                yield f
+
+
 class CaptureSession(object):
     """Capturing a single subarray product."""
     def __init__(self, components=()):
@@ -109,8 +123,13 @@ class CaptureSession(object):
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self.targets = False
+        self._clock = WarpClock()
+        updatable = lambda c: hasattr(c, '_update') and callable(c._update)
+        updatable_comps = [c for c in flatten(components) if updatable(c)]
+        self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
+                        if updatable_comps else None
         self._script_log_handler = self._root_log_handler = None
+        self.targets = False
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
         self.logger = logging.getLogger('kat.session')
 
@@ -128,13 +147,34 @@ class CaptureSession(object):
         # Don't suppress exceptions
         return False
 
+    def time(self):
+        """Current time in UTC seconds since Unix epoch."""
+        return self._clock.time()
+
+    def sleep(self, seconds, condition=None):
+        """Sleep for the requested duration in seconds."""
+        self._clock.sleep(seconds, condition)
+
+    @property
+    def dry_run(self):
+        return self._clock.warp
+    @dry_run.setter
+    def dry_run(self, flag):
+        updatable = lambda c: hasattr(c, '_update') and callable(c._update)
+        fake = lambda c: updatable(c) and c.__class__.__module__.endswith('.fake')
+        all_fake = all([fake(c) for c in flatten(self.components)])
+        if flag and not all_fake:
+            self.logger.warning('Could not enable dry-running as session contains non-fake components')
+        self._clock.warp = flag and all_fake
+
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)
         parser.add_argument('--config', default='mkat/fake_rts.cfg')
         parser.add_argument('--description')
+        parser.add_argument('--dont-stop', action='store_true')
+        parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--dump-rate', type=float, default=2.0)
         parser.add_argument('--log-level', default='INFO')
-        parser.add_argument('--dont-stop', action='store_true')
         if self.targets:
             parser.add_argument('targets', metavar='target', nargs='+')
         return parser
@@ -172,10 +212,15 @@ class CaptureSession(object):
         self._setup_logging(args)
         self._initial_state = self.product_configure(args)
         self.components._start()
+        if self._updater:
+            self._updater.start()
 
     def _stop(self):
         if self._initial_state < CaptureState.CONFIGURED:
             self.product_deconfigure()
+        if self._updater:
+            self._updater.stop()
+            self._updater.join()
         self.components._stop()
         self._teardown_logging()
 
@@ -225,21 +270,17 @@ class CaptureSession(object):
     def track(self, target, duration):
         self.target = target
         if not hasattr(self, 'ants'):
-            time.sleep(duration)
+            self.sleep(duration)
             return
         self.ants.activity = 'slew'
         self.logger.info('slewing to target')
         # Wait until we are on target
-        while set(ant.activity for ant in self.ants) != set(['track']):
-            time.sleep(JIFFY)
-            self.components._update(time.time())
+        cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])
+        self.sleep(200, cond)
         self.logger.info('target reached')
         # Stay on target for desired time
         self.logger.info('tracking target')
-        end_time = time.time() + duration
-        while time.time() < end_time:
-            time.sleep(JIFFY)
-            self.components._update(time.time())
+        self.sleep(duration)
         self.logger.info('target tracked for {} seconds'.format(duration))
 
 """

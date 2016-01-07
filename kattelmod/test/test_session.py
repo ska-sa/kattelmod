@@ -13,7 +13,7 @@ testpath = os.path.dirname(kattelmod.test.__file__)
 class TestBasicTrack(unittest.TestCase):
     def test_run_script(self):
         script = os.path.join(testpath, 'basic_track.py')
-        cmd = '/usr/bin/env python {} "Sun, special"'.format(script)
+        cmd = '/usr/bin/env python {} "Sun, special" --dry-run'.format(script)
 #        subprocess.check_call(shlex.split(cmd))
         process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
