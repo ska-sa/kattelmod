@@ -4,6 +4,7 @@ import argparse
 import time
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
+from kattelmod.logger import LoggingConfigurer
 
 
 # Period of component updates, in seconds
@@ -22,38 +23,6 @@ class CaptureState(object):
     def name(cls, code):
         states = [v for v in vars(cls) if not v.startswith('_') and v != 'name']
         return dict((getattr(cls, s), s) for s in states)[code]
-
-
-class ScriptLogHandler(logging.Handler):
-    """Logging handler that writes observation log records to obs component.
-
-    Parameters
-    ----------
-    obs : :class:`kattelmod.component.Component` object
-        Observation component for the session
-
-    """
-    def __init__(self, obs):
-        logging.Handler.__init__(self)
-        self.obs = obs
-        self.busy_emitting = False
-
-    def emit(self, record):
-        """Emit a logging record."""
-        # Do not emit from within emit()
-        # This occurs when the script_log setting fails and logs an error itself
-        if self.busy_emitting:
-            return
-        try:
-            self.busy_emitting = True
-            msg = self.format(record)
-            self.obs.script_log = msg
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
-        finally:
-            self.busy_emitting = False
 
 
 class ObsParams(collections.MutableMapping):
@@ -128,7 +97,7 @@ class CaptureSession(object):
         updatable_comps = [c for c in flatten(components) if updatable(c)]
         self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
                         if updatable_comps else None
-        self._script_log_handler = self._root_log_handler = None
+        self._logging = LoggingConfigurer()
         self.targets = False
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
         self.logger = logging.getLogger('kat.session')
@@ -182,34 +151,13 @@ class CaptureSession(object):
     def collect_targets(self, targets):
         return list(targets)
 
-    def _setup_logging(self, args):
-        self.logger.setLevel(args.log_level)
-        # Script log formatter has UT timestamps
-        fmt='%(asctime)s.%(msecs)dZ %(levelname)-8s %(message)s'
-        formatter = logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')
-        formatter.converter = time.gmtime
-        # Add special script log handler
-        if hasattr(self, 'obs'):
-            self._script_log_handler = ScriptLogHandler(self.obs)
-            self._script_log_handler.setLevel(args.log_level)
-            self._script_log_handler.setFormatter(formatter)
-            self.logger.addHandler(self._script_log_handler)
-        # Add root handler if none exists - similar to logging.basicConfig()
-        if not logging.root.handlers:
-            self._root_log_handler = logging.StreamHandler()
-            logging.root.addHandler(self._root_log_handler)
-        for handler in logging.root.handlers:
-            handler.setLevel(args.log_level)
-            handler.setFormatter(formatter)
-
-    def _teardown_logging(self):
-        if self._script_log_handler:
-            self.logger.removeHandler(self._script_log_handler)
-        if self._root_log_handler:
-            logging.root.removeHandler(self._root_log_handler)
-
     def _start(self, args):
-        self._setup_logging(args)
+        script_log_cmd = None
+        if hasattr(self, 'obs'):
+            def script_log_cmd(msg):
+                self.obs.script_log = msg
+        self._logging.configure(args.log_level, script_log_cmd,
+                                self._clock, self.dry_run)
         self._initial_state = self.product_configure(args)
         self.components._start()
         if self._updater:
@@ -222,7 +170,7 @@ class CaptureSession(object):
             self._updater.stop()
             self._updater.join()
         self.components._stop()
-        self._teardown_logging()
+        self._logging.restore()
 
     def connect(self, args=None):
         if args is None:
