@@ -227,21 +227,23 @@ class CaptureSession(object):
         return self.cbf.observer if hasattr(self, 'cbf') else \
                self.ants[0].observer if hasattr(self, 'ants') else None
 
-    def track(self, target, duration):
+    def track(self, target, duration, announce=True):
         self.target = target
-        if not hasattr(self, 'ants'):
-            self.sleep(duration)
-            return
-        self.ants.activity = 'slew'
-        self.logger.info('slewing to target')
-        # Wait until we are on target
-        cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])
-        self.sleep(200, cond)
-        self.logger.info('target reached')
+        if announce:
+            self.logger.info("Initiating {:g}-second track on target '{}'"
+                             .format(duration, self.target.name))
+        if hasattr(self, 'ants'):
+            self.ants.activity = 'slew'
+            self.logger.info('slewing to target')
+            # Wait until we are on target
+            cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])
+            self.sleep(200, cond)
+            self.logger.info('target reached')
         # Stay on target for desired time
         self.logger.info('tracking target')
         self.sleep(duration)
-        self.logger.info('target tracked for {} seconds'.format(duration))
+        self.logger.info('target tracked for {:g} seconds'.format(duration))
+        return True
 
 """
     time
