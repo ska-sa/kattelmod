@@ -116,6 +116,8 @@ class KATCPComponent(Component):
         # but this is tolerable since there is currently only one instance
         # of this component (sdp.ScienceDataProcessor)
         self._ioloop_manager = IOLoopManager()
+        # Ensure that the background thread will actually die on script crashes
+        self._ioloop_manager.setDaemon(True)
 
     def _start(self):
         if self._started:
