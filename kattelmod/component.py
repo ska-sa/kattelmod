@@ -1,4 +1,5 @@
 import time
+import logging
 
 from katpoint import Antenna, Target
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
@@ -7,6 +8,9 @@ from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
 from katcp.ioloop_manager import IOLoopManager
 
 from kattelmod.telstate import endpoint_parser
+
+
+logger = logging.getLogger(__name__)
 
 
 # Minimum time that has to elapse before rate-limited sensor values are sent again
@@ -82,7 +86,8 @@ class TelstateUpdatingComponent(Component):
             # avoid race conditions in e.g. CBF simulator that reads it
             if not self._last_update:
                 ts -= 10.0
-            print "telstate", ts, sensor_name, _sensor_transform(value)
+            logger.debug("telstate {} {} {}"
+                         .format(ts, sensor_name, _sensor_transform(value)))
             self._telstate.add(sensor_name, _sensor_transform(value),
                                ts=ts, immutable=attr_name in self._immutables)
 
