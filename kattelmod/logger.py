@@ -80,8 +80,9 @@ def configure_logging(level, script_log_cmd=None, clock=time, dry_run=False):
         Log level for root logger (will typically apply to all loggers)
     script_log_cmd : function, signature `script_log_cmd(msg)`, optional
         Method that will deliver logs to obs component of CaptureSession
+        (remove this handler by default)
     clock : time-like object, optional
-        Custom clock used to timestamp all log records
+        Custom clock used to timestamp all log records (default is usual clock)
     dry_run : {False, True}, optional
         True if doing a dry run, which will mark the logs as such
 
@@ -92,16 +93,19 @@ def configure_logging(level, script_log_cmd=None, clock=time, dry_run=False):
     if not logging.root.handlers:
         logging.root.addHandler(logging.StreamHandler())
     # Add special script log handler if not there, else update its deliverer
-    if script_log_cmd:
-        # This assumes no more than one RobustDeliveryHandler on root logger
-        for handler in logging.root.handlers:
-            if isinstance(handler, RobustDeliveryHandler):
+    # This assumes no more than one RobustDeliveryHandler on root logger
+    for handler in logging.root.handlers:
+        if isinstance(handler, RobustDeliveryHandler):
+            if script_log_cmd:
                 handler.deliver = script_log_cmd
-                break
-        else:
+            else:
+                logging.root.removeHandler(handler)
+            break
+    else:
+        if script_log_cmd:
             logging.root.addHandler(RobustDeliveryHandler(script_log_cmd))
     # Script log formatter has UT timestamps and indication of dry running
-    fmt='%(asctime)s.%(msecs)dZ %(name)-10s %(levelname)-8s %(message)s'
+    fmt='%(asctime)s.%(msecs)03dZ %(name)-10s %(levelname)-8s %(message)s'
     if dry_run:
         fmt = 'DRYRUN: ' + fmt
     formatter = logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')

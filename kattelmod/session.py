@@ -153,25 +153,34 @@ class CaptureSession(object):
     def collect_targets(self, targets):
         return list(targets)
 
-    def _configure_logging(self, log_level):
+    def _configure_logging(self, log_level=None, script_log=True):
+        if log_level is None:
+            log_level = self.obs_params['log_level']
         script_log_cmd = None
-        if hasattr(self, 'obs'):
+        if script_log and hasattr(self, 'obs'):
             def script_log_cmd(msg):
                 self.obs.script_log = msg
         configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
 
     def _start(self, args):
+        # Do product_configure first to get telstate
         self._initial_state = self.product_configure(args)
+        # Now start components to send attributes to telstate (once-off)
         self.components._start()
+        # After initial telstate updates it is OK to start periodic updates
         if self._updater:
             self._updater.start()
 
     def _stop(self):
-        if self._initial_state < CaptureState.CONFIGURED:
-            self.product_deconfigure()
+        # Stop updates first as telstate will disappear in product_deconfigure
         if self._updater:
             self._updater.stop()
             self._updater.join()
+        # Now stop script log handler for same reason
+        self._configure_logging(script_log=False)
+        if self._initial_state < CaptureState.CONFIGURED:
+            self.product_deconfigure()
+        # Stop components (including SDP) after all commands are done
         self.components._stop()
 
     def connect(self, args=None):
