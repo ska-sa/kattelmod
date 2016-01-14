@@ -2,8 +2,6 @@ import time
 import threading
 import logging
 
-from katpoint import Timestamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +67,7 @@ class SingleThreadLock(object):
 class WarpClock(object):
     """Time source with Bed that can warp ahead when both threads sleep."""
     def __init__(self, start_time=None, warp=False):
-        self.offset = 0.0 if start_time is None else \
-                      Timestamp(start_time).secs - time.time()
+        self.offset = 0.0 if start_time is None else start_time - time.time()
         self.warp = warp
         self.bed = Bed()
         self.master_lock = SingleThreadLock()

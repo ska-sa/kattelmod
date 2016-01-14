@@ -3,6 +3,8 @@ import collections
 import argparse
 import time
 
+from katpoint import Timestamp
+
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
 from kattelmod.logger import configure_logging
 
@@ -88,15 +90,13 @@ def flatten(obj):
 class CaptureSession(object):
     """Capturing a single subarray product."""
     def __init__(self, components=()):
+        # Initial logging setup just ensures that we can display early errors
+        configure_logging(logging.WARN)
         self.components = components
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self._clock = WarpClock()
-        updatable = lambda c: hasattr(c, '_update') and callable(c._update)
-        updatable_comps = [c for c in flatten(components) if updatable(c)]
-        self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
-                        if updatable_comps else None
+        self._clock = self._updater = None
         self.targets = False
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
         self.logger = logging.getLogger('kat.session')
@@ -132,7 +132,8 @@ class CaptureSession(object):
         fake = lambda c: updatable(c) and c.__class__.__module__.endswith('.fake')
         all_fake = all([fake(c) for c in flatten(self.components)])
         if flag and not all_fake:
-            self.logger.warning('Could not enable dry-running as session contains non-fake components')
+            self.logger.warning('Could not enable dry-running as session '
+                                'contains non-fake components')
         self._clock.warp = flag and all_fake
 
     def argparser(self, *args, **kwargs):
@@ -143,6 +144,8 @@ class CaptureSession(object):
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--dump-rate', type=float, default=2.0)
         parser.add_argument('--log-level', default='INFO')
+        parser.add_argument('--start-time')
+        # Positional arguments are assumed to be targets
         if self.targets:
             parser.add_argument('targets', metavar='target', nargs='+')
         return parser
@@ -158,7 +161,6 @@ class CaptureSession(object):
         configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
 
     def _start(self, args):
-        self._configure_logging(args.log_level)
         self._initial_state = self.product_configure(args)
         self.components._start()
         if self._updater:
@@ -173,8 +175,18 @@ class CaptureSession(object):
         self.components._stop()
 
     def connect(self, args=None):
+        # Get parameters from command line by default for a quick session init
         if args is None:
             args = self.argparser().parse_args()
+        # Set up clock and updater once start_time is known
+        self._clock = WarpClock(Timestamp(args.start_time).secs)
+        self.dry_run = args.dry_run
+        updatable = lambda c: hasattr(c, '_update') and callable(c._update)
+        updatable_comps = [c for c in flatten(self.components) if updatable(c)]
+        self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
+                        if updatable_comps else None
+        # Set up logging once log_level is known and clock is available
+        self._configure_logging(args.log_level)
         self._start(args)
         if self._initial_state < CaptureState.INITED:
             self.capture_init()

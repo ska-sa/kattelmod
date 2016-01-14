@@ -15,7 +15,6 @@ def session_from_commandline(targets=False):
     args, other = CaptureSession().argparser().parse_known_args()
     session = session_from_config(args.config)
     session.targets = targets
-    session.dry_run = args.dry_run
     return session
 
 # Keep API clean when inspected by user via e.g. IPython
