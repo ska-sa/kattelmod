@@ -71,56 +71,40 @@ class RobustDeliveryHandler(logging.Handler):
             self.busy_emitting = False
 
 
-class LoggingConfigurer(object):
-    """Configure global logging for CaptureSessions with ability to restore."""
-    def __init__(self):
-        self.basic_handler = self.script_log_handler = None
-        self.old_clock = self.old_level = self.old_formatter = None
+def configure_logging(level, script_log_cmd=None, clock=time, dry_run=False):
+    """Configure logging system by setting root handlers, level and clock.
 
-    def configure(self, level, script_log_cmd=None, clock=time, dry_run=False):
-        """Configure logging system by setting root handlers, level and clock.
+    Parameters
+    ----------
+    level : integer or string
+        Log level for root logger (will typically apply to all loggers)
+    script_log_cmd : function, signature `script_log_cmd(msg)`, optional
+        Method that will deliver logs to obs component of CaptureSession
+    clock : time-like object, optional
+        Custom clock used to timestamp all log records
+    dry_run : {False, True}, optional
+        True if doing a dry run, which will mark the logs as such
 
-        Parameters
-        ----------
-        level : integer or string
-            Log level for root logger (will typically apply to all loggers)
-        script_log_cmd : function, signature `script_log_cmd(msg)`, optional
-            Method that will deliver logs to obs component of CaptureSession
-        clock : time-like object, optional
-            Custom clock used to timestamp all log records
-        dry_run : {False, True}, optional
-            True if doing a dry run, which will mark the logs as such
-
-        """
-        self.old_clock = logging.clock
-        logging.clock = clock
-        self.old_level = logging.root.level
-        logging.root.setLevel(level)
-        # Add root handler if none exists - similar to logging.basicConfig()
-        if not logging.root.handlers:
-            self.basic_handler = logging.StreamHandler()
-            logging.root.addHandler(self.basic_handler)
-        # Add special script log handler if required
-        if script_log_cmd:
-            self.script_log_handler = RobustDeliveryHandler(script_log_cmd)
-            logging.root.addHandler(self.script_log_handler)
-        # Script log formatter has UT timestamps
-        fmt='%(asctime)s.%(msecs)dZ %(name)-10s %(levelname)-8s %(message)s'
-        if dry_run:
-            fmt = 'DRYRUN: ' + fmt
-        formatter = logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')
-        formatter.converter = time.gmtime
+    """
+    logging.root.setLevel(level)
+    logging.clock = clock
+    # Add root handler if none exists - similar to logging.basicConfig()
+    if not logging.root.handlers:
+        logging.root.addHandler(logging.StreamHandler())
+    # Add special script log handler if not there, else update its deliverer
+    if script_log_cmd:
+        # This assumes no more than one RobustDeliveryHandler on root logger
         for handler in logging.root.handlers:
-            self.old_formatter = handler.formatter
-            handler.setFormatter(formatter)
-
-    def restore(self):
-        """Restore logging system to the state before configure()."""
-        logging.clock = self.old_clock
-        logging.root.setLevel(self.old_level)
-        if self.basic_handler:
-            logging.root.removeHandler(self.basic_handler)
-        if self.script_log_handler:
-            logging.root.removeHandler(self.script_log_handler)
-        for handler in logging.root.handlers:
-            handler.setFormatter(self.old_formatter)
+            if isinstance(handler, RobustDeliveryHandler):
+                handler.deliver = script_log_cmd
+                break
+        else:
+            logging.root.addHandler(RobustDeliveryHandler(script_log_cmd))
+    # Script log formatter has UT timestamps and indication of dry running
+    fmt='%(asctime)s.%(msecs)dZ %(name)-10s %(levelname)-8s %(message)s'
+    if dry_run:
+        fmt = 'DRYRUN: ' + fmt
+    formatter = logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')
+    formatter.converter = time.gmtime
+    for handler in logging.root.handlers:
+        handler.setFormatter(formatter)

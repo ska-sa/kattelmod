@@ -4,7 +4,7 @@ import argparse
 import time
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
-from kattelmod.logger import LoggingConfigurer
+from kattelmod.logger import configure_logging
 
 
 # Period of component updates, in seconds
@@ -97,7 +97,6 @@ class CaptureSession(object):
         updatable_comps = [c for c in flatten(components) if updatable(c)]
         self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
                         if updatable_comps else None
-        self._logging = LoggingConfigurer()
         self.targets = False
         self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
         self.logger = logging.getLogger('kat.session')
@@ -151,13 +150,15 @@ class CaptureSession(object):
     def collect_targets(self, targets):
         return list(targets)
 
-    def _start(self, args):
+    def _configure_logging(self, log_level):
         script_log_cmd = None
         if hasattr(self, 'obs'):
             def script_log_cmd(msg):
                 self.obs.script_log = msg
-        self._logging.configure(args.log_level, script_log_cmd,
-                                self._clock, self.dry_run)
+        configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
+
+    def _start(self, args):
+        self._configure_logging(args.log_level)
         self._initial_state = self.product_configure(args)
         self.components._start()
         if self._updater:
@@ -170,7 +171,6 @@ class CaptureSession(object):
             self._updater.stop()
             self._updater.join()
         self.components._stop()
-        self._logging.restore()
 
     def connect(self, args=None):
         if args is None:
