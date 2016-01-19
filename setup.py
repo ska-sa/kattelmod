@@ -20,6 +20,8 @@ setup (
     ],
     platforms=[ "OS Independent" ],
     keywords="kat meerkat ska",
+    # Include the contents of MANIFEST.in (the system config files)
+    include_package_data=True,
     zip_safe=False,
     # Bitten Test Suite
     test_suite="nose.collector",
