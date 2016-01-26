@@ -1,4 +1,6 @@
 import time
+import logging
+
 try:
     import katsdptelstate
 except ImportError:
@@ -7,16 +9,20 @@ except ImportError:
 
 class FakeTelescopeState(object):
     """Fake version of katsdptelstate.TelescopeState."""
-    def __init__(self, endpoint='localhost', db=0, clock=time):
+    def __init__(self, endpoint=None, db=0):
+        # If endpoint is given, we typically have a missing dependency issue
+        if endpoint:
+            logger = logging.getLogger('kat.session')
+            logger.warning('No katsdptelstate/redis found, using fake telstate')
         self.db = []
-        self.clock = clock
         self.sensors = set()
 
-    def add(self, sensor_name, value, immutable=False):
-        if immutable and sensor_name in self.sensors:
+    def add(self, key, value, ts=None, immutable=False):
+        if immutable and key in self.sensors:
             raise KeyError("Attempt to overwrite immutable key.")
-        self.sensors.add(sensor_name)
-        self.db.append((self.clock.time(), sensor_name, value))
+        self.sensors.add(key)
+        ts = time.time() if ts is None else ts
+        self.db.append((ts, key, value))
 
 
 if katsdptelstate:
