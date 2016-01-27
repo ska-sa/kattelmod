@@ -14,15 +14,15 @@ class FakeTelescopeState(object):
         if endpoint:
             logger = logging.getLogger('kat.session')
             logger.warning('No katsdptelstate/redis found, using fake telstate')
-        self.db = []
-        self.sensors = set()
+        self.db = {}
 
     def add(self, key, value, ts=None, immutable=False):
-        if immutable and key in self.sensors:
+        if immutable and key in self.db:
             raise KeyError("Attempt to overwrite immutable key.")
-        self.sensors.add(key)
         ts = time.time() if ts is None else ts
-        self.db.append((ts, key, value))
+        ts_values = self.db.get(key, [])
+        ts_values.append((ts, value))
+        self.db[key] = ts_values
 
 
 if katsdptelstate:
