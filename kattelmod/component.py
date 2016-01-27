@@ -69,6 +69,7 @@ class TelstateUpdatingComponent(Component):
     def __init__(self):
         self._telstate = None
         self._clock = time
+        self._update_time = 0.0
         self._elapsed_time = 0.0
         self._last_update = 0.0
         self._last_rate_limited_send = 0.0
@@ -81,7 +82,8 @@ class TelstateUpdatingComponent(Component):
                        self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
-            ts = self._clock.time()
+            # Use fixed update time while within an update() call
+            ts = self._update_time if self._update_time else self._clock.time()
             # If this is initial sensor update, move it into recent past to
             # avoid race conditions in e.g. CBF simulator that reads it
             if not self._last_update:

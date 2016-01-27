@@ -121,6 +121,9 @@ class PeriodicUpdaterThread(threading.Thread):
         self.daemon = True
         self.components = components
         self.clock = clock
+        # This is necessary to provide the correct timestamps for async sets
+        for component in components:
+            component._clock = clock
         self.period = period
         self._thread_active = True
 
@@ -140,7 +143,10 @@ class PeriodicUpdaterThread(threading.Thread):
         while self._thread_active:
             timestamp = self.clock.time()
             for component in self.components:
+                # Force all sensor updates to happen at the same timestamp
+                component._update_time = timestamp
                 component._update(timestamp)
+                component._update_time = 0.0
             after_update = self.clock.time()
             update_time = after_update - timestamp
             remaining_time = self.period - update_time
