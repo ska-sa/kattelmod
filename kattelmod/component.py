@@ -45,11 +45,17 @@ class Component(object):
     def __repr__(self):
         return "<{} '{}' at {}>".format(self._type(), self._name, id(self))
 
+    @property
+    def _sensors(self):
+        return [name for name in sorted(dir(self))
+                if not name.startswith('_') and
+                   not callable(getattr(self, name))]
+
     def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
         if 'self' in params:
             del params['self']
-        self._immutables = params.keys()
+        self._immutables = sorted(params.keys())
         for name, value in params.items():
             setattr(self, name, value)
 
@@ -106,9 +112,8 @@ class TelstateUpdatingComponent(Component):
             return
         super(TelstateUpdatingComponent, self)._start()
         # Reassign values to object attributes to trigger output to telstate
-        for name in dir(self):
-            if not name.startswith('_') and not callable(getattr(self, name)):
-                setattr(self, name, getattr(self, name))
+        for name in self._sensors:
+            setattr(self, name, getattr(self, name))
 
 
 class KATCPComponent(Component):
@@ -221,6 +226,10 @@ class MultiComponent(Component):
 
     def __getitem__(self, key):
         return self._comps[key] if isinstance(key, int) else getattr(self, key)
+
+    @property
+    def _sensors(self):
+        return []
 
 
 class TargetObserverMixin(object):
