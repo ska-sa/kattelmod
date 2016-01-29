@@ -5,25 +5,7 @@ from importlib import import_module
 import numpy as np
 
 import kattelmod.systems
-from kattelmod.component import MultiComponent
-
-
-def _create_component(cfg, system, comp_name, comp_type, **kwargs):
-    comp_module, _, comp_class = comp_type.rpartition('.')
-    module_path = "kattelmod.systems.{}.{}".format(system, comp_module)
-    try:
-        Component = getattr(import_module(module_path), comp_class)
-    except (ImportError, AttributeError):
-        raise Error("No component class named '{}.{}'".format(system, comp_type))
-    params = {k: np.safe_eval(v) for k, v in cfg.items(comp_name)} \
-             if cfg.has_section(comp_name) else {}
-    params.update(kwargs)
-    try:
-        comp = Component(**params)
-    except TypeError as e:
-        raise TypeError('Could not construct {}: {}'.format(Component._type(), e))
-    comp._name = comp_name
-    return comp
+from kattelmod.component import MultiComponent, construct_component
 
 
 def session_from_config(config_file):
@@ -65,11 +47,16 @@ def session_from_config(config_file):
             names = [comp_name]
         comps = []
         for name in names:
+            params = {k: np.safe_eval(v) for k, v in cfg.items(name)} \
+                     if cfg.has_section(name) else {}
             if comp_type.endswith('AntennaPositioner'):
-                extras = {'observer': all_ants.get(name, '')}
-            else:
-                extras = {}
-            comps.append(_create_component(cfg, system, name, comp_type, **extras))
+                params['observer'] = all_ants.get(name, '')
+            full_comp_type = '.'.join((system, comp_type))
+            try:
+                comp = construct_component(full_comp_type, name, params)
+            except TypeError as e:
+                raise Error(e.message)
+            comps.append(comp)
         components.append(MultiComponent(comp_name, comps) if group else comps[0])
     # Construct session object
     module_path = "kattelmod.systems.{}.session".format(system)

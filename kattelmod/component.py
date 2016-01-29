@@ -1,5 +1,6 @@
 import time
 import logging
+from importlib import import_module
 
 from katpoint import Antenna, Target
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
@@ -244,3 +245,20 @@ class TargetObserverMixin(object):
     @target.setter
     def target(self, target):
         self._target = Target(target, antenna=self._observer) if target else ''
+
+
+def construct_component(comp_type, comp_name=None, params=None):
+    """Construct component with given type string, name and parameters."""
+    comp_module, comp_class = comp_type.rsplit('.', 1)
+    module_path = "kattelmod.systems." + comp_module
+    try:
+        Component = getattr(import_module(module_path), comp_class)
+    except (ImportError, AttributeError):
+        raise TypeError("No component class named '{}'".format(comp_type))
+    params = params if params else {}
+    try:
+        comp = Component(**params)
+    except TypeError as e:
+        raise TypeError('Could not construct {}: {}'.format(Component._type(), e))
+    comp._name = comp_name if comp_name else ''
+    return comp
