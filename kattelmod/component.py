@@ -261,13 +261,17 @@ def construct_component(comp_type, comp_name=None, params=None):
     comp_module, comp_class = comp_type.rsplit('.', 1)
     module_path = "kattelmod.systems." + comp_module
     try:
-        Component = getattr(import_module(module_path), comp_class)
+        NewComponent = getattr(import_module(module_path), comp_class)
     except (ImportError, AttributeError):
         raise TypeError("No component class named '{}'".format(comp_type))
     params = params if params else {}
+    # Cull any unknown parameters before constructing object
+    expected_args = NewComponent.__init__.im_func.func_code.co_varnames[1:]
+    params = {k: v for (k, v) in params.items() if k in expected_args}
     try:
-        comp = Component(**params)
+        comp = NewComponent(**params)
     except TypeError as e:
-        raise TypeError('Could not construct {}: {}'.format(Component._type(), e))
+        raise TypeError('Could not construct {}: {}'
+                        .format(NewComponent._type(), e))
     comp._name = comp_name if comp_name else ''
     return comp
