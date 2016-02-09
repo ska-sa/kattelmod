@@ -9,14 +9,18 @@ from kattelmod.component import MultiComponent, construct_component
 
 
 def session_from_config(config_file):
-    # Default place to look for system config files is in systems module
-    systems_path = os.path.dirname(kattelmod.systems.__file__)
-    if not os.path.exists(config_file):
-        config_file = os.path.join(systems_path, config_file)
     cfg = SafeConfigParser(allow_no_value=True)
-    files_read = cfg.read(config_file)
-    if files_read != [config_file]:
-        raise Error("Could not open config file '{}'".format(config_file))
+    # Handle file-like objects separately
+    if hasattr(config_file, 'readline'):
+        cfg.readfp(config_file)
+    else:
+        # Default place to look for system config files is in systems module
+        systems_path = os.path.dirname(kattelmod.systems.__file__)
+        if not os.path.exists(config_file):
+            config_file = os.path.join(systems_path, config_file)
+        files_read = cfg.read(config_file)
+        if files_read != [config_file]:
+            raise Error("Could not open config file '{}'".format(config_file))
     # Get intended telescope system and verify that it is supported
     main = [sect for sect in cfg.sections() if sect.startswith('Telescope')]
     if not main:
