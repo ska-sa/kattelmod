@@ -153,6 +153,13 @@ class CaptureSession(object):
     def collect_targets(self, targets):
         return list(targets)
 
+    def _fake(self):
+        """Construct an equivalent fake session."""
+        if hasattr(self.components, '_fake'):
+            return type(self)(self.components._fake())
+        else:
+            return type(self)([comp._fake() for comp in self.components])
+
     def _configure_logging(self, log_level=None, script_log=True):
         if log_level is None:
             log_level = self.obs_params['log_level']

@@ -70,6 +70,17 @@ class Component(object):
     def _stop(self):
         self._started = False
 
+    def _fake(self):
+        """Construct an equivalent fake component."""
+        orig_type = self._type().rsplit('.', 2)
+        fake_type = '{}.fake.{}'.format(orig_type[0], orig_type[2])
+        params = {attr: getattr(self, attr) for attr in self._immutables}
+        fake_comp = construct_component(fake_type, self._name, params)
+        for sensor_name in self._sensors:
+            if sensor_name not in self._immutables:
+                setattr(fake_comp, sensor_name, getattr(self, sensor_name))
+        return fake_comp
+
 
 class TelstateUpdatingComponent(Component):
     """Component that will update telstate when its attributes are set."""
@@ -180,7 +191,7 @@ class MultiMethod(object):
 
 class MultiComponent(Component):
     """Combine multiple similar components into a single component."""
-    _not_shared = ('_name', '_immutables', '_started', '_comps')
+    _not_shared = ('_name', '_immutables', '_started', '_comps', '_fake')
 
     def __init__(self, name, comps):
         super(MultiComponent, self).__init__()
@@ -199,7 +210,7 @@ class MultiComponent(Component):
                 methods[name] = methods.get(name, []) + [method]
         for name, meths in methods.items():
             # Only create a top-level method if all components below have it
-            if len(meths) == len(self._comps):
+            if len(meths) == len(self._comps) and name not in self._not_shared:
                 multimethod = MultiMethod(self._comps, name, meths[0].__doc__)
                 super(MultiComponent, self).__setattr__(name, multimethod)
 
@@ -230,6 +241,11 @@ class MultiComponent(Component):
     @property
     def _sensors(self):
         return []
+
+    def _fake(self):
+        """Construct an equivalent fake component by faking subcomponents."""
+        fake_comps = [comp._fake() for comp in self._comps]
+        return MultiComponent(self._name, fake_comps)
 
 
 class TargetObserverMixin(object):
