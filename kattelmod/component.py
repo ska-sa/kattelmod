@@ -59,10 +59,10 @@ class Component(object):
         for name, value in params.items():
             setattr(self, name, value)
 
-    def _add_dummy_methods(self, names, func=None):
+    @classmethod
+    def _add_dummy_methods(cls, names, func=None):
         for name in names.split(' '):
-            setattr(self.__class__, name.strip(),
-                    func if func else lambda self: None)
+            setattr(cls, name.strip(), func if func else lambda self: None)
 
     def _start(self):
         self._started = True
