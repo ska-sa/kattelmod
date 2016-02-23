@@ -98,8 +98,12 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self._clock = self._updater = None
         self.targets = False
-        self.obs_params = ObsParams(self.obs) if hasattr(self, 'obs') else {}
+        self.obs_params = ObsParams(self.obs) if 'obs' in self else {}
         self.logger = logging.getLogger('kat.session')
+
+    def __contains__(self, key):
+        """True if CaptureSession contains top-level component *key*."""
+        return hasattr(self, key) and getattr(self, key) in self.components
 
     def __enter__(self):
         """Enter context."""
@@ -164,7 +168,7 @@ class CaptureSession(object):
         if log_level is None:
             log_level = self.obs_params['log_level']
         script_log_cmd = None
-        if script_log and hasattr(self, 'obs'):
+        if script_log and 'obs' in self:
             def script_log_cmd(msg):
                 self.obs.script_log = msg
         configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
@@ -229,26 +233,26 @@ class CaptureSession(object):
 
     @property
     def target(self):
-        return self.cbf.target if hasattr(self, 'cbf') else \
-               self.ants[0].target if hasattr(self, 'ants') else None
+        return self.cbf.target if 'cbf' in self else \
+               self.ants[0].target if 'ants' in self else None
     @target.setter
     def target(self, target):
-        if hasattr(self, 'ants'):
+        if 'ants' in self:
             self.ants.target = target
-        if hasattr(self, 'cbf'):
+        if 'cbf' in self:
             self.cbf.target = target
 
     @property
     def observer(self):
-        return self.cbf.observer if hasattr(self, 'cbf') else \
-               self.ants[0].observer if hasattr(self, 'ants') else None
+        return self.cbf.observer if 'cbf' in self else \
+               self.ants[0].observer if 'ants' in self else None
 
     def track(self, target, duration, announce=True):
         self.target = target
         if announce:
             self.logger.info("Initiating {:g}-second track on target '{}'"
                              .format(duration, self.target.name))
-        if hasattr(self, 'ants'):
+        if 'ants' in self:
             self.ants.activity = 'slew'
             self.logger.info('slewing to target')
             # Wait until we are on target

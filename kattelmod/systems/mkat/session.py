@@ -13,15 +13,12 @@ class CaptureSession(BaseCaptureSession):
     def _get_telstate(self, args):
         if getattr(args, 'telstate', None):
             endpoint = args.telstate
-        elif hasattr(self, 'sdp'):
-            endpoint = self.sdp.get_telstate()
-        else:
-            endpoint = ''
+        endpoint = self.sdp.get_telstate() if 'sdp' in self else ''
         return None if not endpoint else TelescopeState(endpoint) \
                if endpoint != 'fake' else FakeTelescopeState()
 
     def product_configure(self, args):
-        if all(hasattr(self, comp) for comp in ('sub', 'sdp', 'ants')):
+        if all(comp in self for comp in ('sub', 'sdp', 'ants')):
             ants = [var for var in vars(self.ants) if not var.startswith('_')]
             self.sdp._start()
             prod_conf = self.sdp.product_configure
@@ -31,21 +28,21 @@ class CaptureSession(BaseCaptureSession):
         return initial_state
 
     def capture_init(self):
-        if hasattr(self, 'sdp'):
+        if 'sdp' in self:
             self.sdp.capture_init()
 
     def capture_start(self):
-        if hasattr(self, 'cbf'):
+        if 'cbf' in self:
             self.cbf.capture_start()
 
     def capture_stop(self):
-        if hasattr(self, 'cbf'):
+        if 'cbf' in self:
             self.cbf.capture_stop()
 
     def capture_done(self):
-        if hasattr(self, 'sdp'):
+        if 'sdp' in self:
             self.sdp.capture_done()
 
     def product_deconfigure(self):
-        if hasattr(self, 'sdp'):
+        if 'sdp' in self:
             self.sdp.product_deconfigure()

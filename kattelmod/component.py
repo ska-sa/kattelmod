@@ -252,7 +252,16 @@ class MultiComponent(Component):
         return iter(self._comps)
 
     def __getitem__(self, key):
-        return self._comps[key] if isinstance(key, int) else getattr(self, key)
+        """Access underlying component *key* via name."""
+        comp = getattr(self, key, None)
+        if comp in self._comps:
+            return comp
+        else:
+            raise KeyError("No component '{}' in '{}'".format(key, self._name))
+
+    def __contains__(self, key):
+        """Test whether MultiComponent contains component *key*."""
+        return hasattr(self, key) and getattr(self, key) in self._comps
 
     @property
     def _sensors(self):
