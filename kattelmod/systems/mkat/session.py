@@ -18,7 +18,7 @@ class CaptureSession(BaseCaptureSession):
                if endpoint != 'fake' else FakeTelescopeState()
 
     def product_configure(self, args):
-        if all(comp in self for comp in ('sub', 'sdp', 'ants')):
+        if ('sub', 'sdp', 'ants') in self:
             ants = [var for var in vars(self.ants) if not var.startswith('_')]
             self.sdp._start()
             prod_conf = self.sdp.product_configure
