@@ -30,7 +30,17 @@ class SingleThreadError(Exception):
 
 
 class SingleThreadLock(object):
-    """A lock that only ever allows one thread to use it."""
+    """A 'lock' that only ever allows one thread to use it.
+
+    As soon as another thread attempts to acquire this object (or the same
+    thread re-enters it), an exception is raised. The 'lock' acquisition
+    will therefore never block. This object should therefore be interpreted
+    as an assertion about the threads using it as opposed to a true lock.
+
+    This class ensures that the warp clock will only ever have a single master
+    and slave thread to avoid clock screw-ups.
+
+    """
     def __init__(self):
         self._lock = threading.Lock()
         self.thread_name = ''

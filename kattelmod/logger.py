@@ -40,7 +40,8 @@ class RobustDeliveryHandler(logging.Handler):
     A custom function provided at initialisation is called to deliver log
     messages. In addition, a basic lock is used to avoid infinite recursion
     if the delivery mechanism fails and then attempts to log the error to
-    the same handler.
+    the same handler. This is threadsafe by virtue of the lock surrounding
+    emit() in the logging.Handler base class.
 
     Parameters
     ----------
