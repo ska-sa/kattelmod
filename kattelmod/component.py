@@ -94,7 +94,7 @@ class TelstateUpdatingComponent(Component):
         super(TelstateUpdatingComponent, self).__init__()
 
     def __setattr__(self, attr_name, value):
-        object.__setattr__(self, attr_name, value)
+        super(TelstateUpdatingComponent, self).__setattr__(attr_name, value)
         # Do sensor updates (either event or event-rate SENSOR_MIN_PERIOD)
         time_to_send = not is_rate_limited(attr_name) or \
                        self._last_rate_limited_send == self._last_update
@@ -148,7 +148,6 @@ class KATCPComponent(Component):
             return
         super(KATCPComponent, self)._start()
         ioloop = self._ioloop_manager.get_ioloop()
-        ioloop.make_current()
         self._ioloop_manager.start()
         resource_spec = dict(name=self._name, controlled=True,
                              address=(self._endpoint.host, self._endpoint.port))
@@ -176,7 +175,24 @@ class KATCPComponent(Component):
 
 
 class MultiMethod(object):
-    """Call the same method on multiple similar objects."""
+    """Call the same method on multiple similar objects.
+
+    Parameters
+    ----------
+    objects : sequence of objects
+        Similar objects
+    name : string
+        Name of method to call on objects
+    description : string
+        Docstring of method, added to :class:`MultiMethod` object
+
+    Notes
+    -----
+    If any of the objects does not have the method, skip them quietly.
+    On the other hand, the :class:`MultiComponent` object ensures that
+    all objects do have the method before it constructs this object.
+
+    """
     def __init__(self, objects, name, description):
         self.objects = objects
         self.name = name
