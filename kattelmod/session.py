@@ -103,7 +103,7 @@ class CaptureSession(object):
         self.logger = logging.getLogger('kat.session')
 
     def __contains__(self, key):
-        """True if CaptureSession contains top-level component(s) *key*."""
+        """True if CaptureSession contains top-level component(s) by name."""
         if hasattr(key, '__iter__'):
             return all(comp in self for comp in key)
         else:

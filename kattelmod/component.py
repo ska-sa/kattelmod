@@ -270,7 +270,7 @@ class MultiComponent(Component):
             raise KeyError("No component '{}' in '{}'".format(key, self._name))
 
     def __contains__(self, key):
-        """Test whether MultiComponent contains component(s) *key*."""
+        """Test whether MultiComponent contains component(s) by name or value."""
         if isinstance(key, Component):
             return key in self._comps
         elif hasattr(key, '__iter__'):

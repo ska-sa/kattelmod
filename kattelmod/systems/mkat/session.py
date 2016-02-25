@@ -13,7 +13,10 @@ class CaptureSession(BaseCaptureSession):
     def _get_telstate(self, args):
         if getattr(args, 'telstate', None):
             endpoint = args.telstate
-        endpoint = self.sdp.get_telstate() if 'sdp' in self else ''
+        elif 'sdp' in self:
+            endpoint = self.sdp.get_telstate()
+        else:
+            endpoint = ''
         return None if not endpoint else TelescopeState(endpoint) \
                if endpoint != 'fake' else FakeTelescopeState()
 
