@@ -7,6 +7,7 @@ from katpoint import Timestamp
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
 from kattelmod.logger import configure_logging
+from kattelmod.component import Component
 
 
 # Period of component updates, in seconds
