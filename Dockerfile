@@ -11,7 +11,7 @@ COPY . /tmp/install/kattelmod
 WORKDIR /tmp/install/kattelmod
 RUN python ./setup.py clean && pip install --no-index .
 
-# Network setup
+# Expose Jupyter port
 EXPOSE 8888
 
 # Launch configuration
@@ -20,12 +20,3 @@ COPY ./kattelmod /home/kat
 USER root
 RUN chown -R kat:kat /home/kat/
 USER kat
-RUN pip install jupyter
- # way too much effort to include all of the notebook dependencies in the requirements file
-RUN pip install matplotlib
-
-USER root
-ADD https://github.com/krallin/tini/releases/download/v0.9.0/tini /usr/bin/tini
-RUN chmod +x /usr/bin/tini
-USER kat
-ENTRYPOINT ["/usr/bin/tini", "--"]
