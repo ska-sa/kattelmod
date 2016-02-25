@@ -13,6 +13,7 @@ from kattelmod.logger import configure_logging
 JIFFY = 0.1
 
 
+# XXX Replace with enum34.Enum (and fix katmisc along the way to use same)
 class CaptureState(object):
     """State of data capturing subsystem."""
     UNKNOWN = 0
@@ -135,9 +136,7 @@ class CaptureSession(object):
         return self._clock.warp
     @dry_run.setter
     def dry_run(self, flag):
-        updatable = lambda c: hasattr(c, '_update') and callable(c._update)
-        fake = lambda c: updatable(c) and c.__class__.__module__.endswith('.fake')
-        all_fake = all([fake(c) for c in flatten(self.components)])
+        all_fake = all([comp._is_fake for comp in flatten(self.components)])
         if flag and not all_fake:
             self.logger.warning('Could not enable dry-running as session '
                                 'contains non-fake components')
@@ -145,7 +144,7 @@ class CaptureSession(object):
 
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)
-        parser.add_argument('--config', default='mkat/fake_rts.cfg')
+        parser.add_argument('--config', default='mkat/fake_2ant.cfg')
         parser.add_argument('--description')
         parser.add_argument('--dont-stop', action='store_true')
         parser.add_argument('--dry-run', action='store_true')
@@ -204,8 +203,7 @@ class CaptureSession(object):
         # Set up clock and updater once start_time is known
         self._clock = WarpClock(Timestamp(args.start_time).secs)
         self.dry_run = args.dry_run
-        updatable = lambda c: hasattr(c, '_update') and callable(c._update)
-        updatable_comps = [c for c in flatten(self.components) if updatable(c)]
+        updatable_comps = [c for c in flatten(self.components) if c._updatable]
         self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
                         if updatable_comps else None
         # Set up logging once log_level is known and clock is available

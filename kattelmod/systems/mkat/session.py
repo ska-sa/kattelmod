@@ -1,4 +1,4 @@
-from kattelmod.session import CaptureSession as BaseCaptureSession
+from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
 from kattelmod.telstate import TelescopeState, FakeTelescopeState
 
 
@@ -18,8 +18,9 @@ class CaptureSession(BaseCaptureSession):
                if endpoint != 'fake' else FakeTelescopeState()
 
     def product_configure(self, args):
+        initial_state = CaptureState.UNKNOWN
         if ('sub', 'sdp', 'ants') in self:
-            ants = [var for var in vars(self.ants) if not var.startswith('_')]
+            ants = [comp._name for comp in self.ants]
             self.sdp._start()
             prod_conf = self.sdp.product_configure
             initial_state = prod_conf(self.sub.product, self.sub.dump_rate,

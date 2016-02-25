@@ -44,7 +44,7 @@ def session_from_config(config_file):
             names = []
             for initial, final in cfg.items(comp_name):
                 if initial == 'names':
-                    names += final.split(',')
+                    names += [name.strip() for name in final.split(',')]
                 elif initial.endswith('+'):
                     names += [initial[:-1] + f for f in final if f in '0123456789']
         else:
@@ -54,6 +54,7 @@ def session_from_config(config_file):
             params = {k: np.safe_eval(v) for k, v in cfg.items(name)} \
                      if cfg.has_section(name) else {}
             if comp_type.endswith('AntennaPositioner'):
+                # XXX Complain if antenna is unknown
                 params['observer'] = all_ants.get(name, '')
             full_comp_type = '.'.join((system, comp_type))
             try:
@@ -61,6 +62,7 @@ def session_from_config(config_file):
             except TypeError as e:
                 raise Error(e.message)
             comps.append(comp)
+        # XXX Complain if comps is empty
         components.append(MultiComponent(comp_name, comps) if group else comps[0])
     # Construct session object
     module_path = "kattelmod.systems.{}.session".format(system)

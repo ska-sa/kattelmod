@@ -46,6 +46,16 @@ class Component(object):
         return "<{} '{}' at {}>".format(self._type(), self._name, id(self))
 
     @property
+    def _updatable(self):
+        """True if component is updatable via an updater thread."""
+        return hasattr(self, '_update') and callable(self._update)
+
+    @property
+    def _is_fake(self):
+        """True if component is fake."""
+        return self._updatable and self.__class__.__module__.endswith('.fake')
+
+    @property
     def _sensors(self):
         return [name for name in sorted(dir(self))
                 if not name.startswith('_') and
@@ -312,6 +322,7 @@ def construct_component(comp_type, comp_name=None, params=None):
         raise TypeError("No component class named '{}'".format(comp_type))
     params = params if params else {}
     # Cull any unknown parameters before constructing object
+    # XXX Figure out a better way to construct from another similar component
     expected_args = NewComponent.__init__.im_func.func_code.co_varnames[1:]
     params = {k: v for (k, v) in params.iteritems() if k in expected_args}
     try:
