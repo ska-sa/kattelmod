@@ -1,6 +1,6 @@
 """Unit tests for CaptureSession."""
 
-import unittest2 as unittest
+import unittest
 import os.path
 from subprocess import Popen, PIPE
 
