@@ -3,7 +3,6 @@ from setuptools import setup, find_packages
 
 setup (
     name="kattelmod",
-    version="trunk",
     description="Karoo Array Telescope telescope model library'",
     author="Ludwig Schwardt",
     author_email="ludwig@ska.ac.za",
@@ -25,6 +24,8 @@ setup (
     zip_safe=False,
     # Bitten Test Suite
     test_suite="nose.collector",
+    setup_requires=['katversion'],
+    use_katversion=True,
     install_requires=[
         "numpy",
         "h5py",
