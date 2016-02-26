@@ -3,8 +3,7 @@ import threading
 import logging
 import time
 
-from kattelmod.fake.updater import (WarpClock, PeriodicUpdaterThread,
-                                    SingleThreadError)
+from kattelmod.updater import WarpClock, PeriodicUpdaterThread, SingleThreadError
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -14,8 +13,10 @@ class TestingUpdate(unittest.TestCase):
     """Run 'nosetests -s --nologcapture' to see output."""
     def setUp(self):
         self.counter = 0
+        self._update_time = 0.
+        self._clock = time
 
-    def update(self, timestamp):
+    def _update(self, timestamp):
         self.counter += 1
         time.sleep(0.01)
         print 'Updated at', timestamp, 'counter =', self.counter
