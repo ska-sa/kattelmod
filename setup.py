@@ -7,7 +7,7 @@ setup (
     author="Ludwig Schwardt",
     author_email="ludwig@ska.ac.za",
     packages=find_packages(),
-    url='http://ska.ac.za/',
+    url='https://github.com/ska-sa/kattelmod',
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
@@ -18,19 +18,12 @@ setup (
         "Topic :: Scientific/Engineering :: Astronomy",
     ],
     platforms=[ "OS Independent" ],
-    keywords="kat meerkat ska",
+    keywords="meerkat ska",
     # Include the contents of MANIFEST.in (the system config files)
     include_package_data=True,
     zip_safe=False,
-    # Bitten Test Suite
     test_suite="nose.collector",
     setup_requires=['katversion'],
     use_katversion=True,
-    install_requires=[
-        "numpy",
-        "h5py",
-        "spead",
-        "katcp",
-        "katpoint",
-        ]
+    install_requires=["numpy", "katcp", "katpoint"]
 )
