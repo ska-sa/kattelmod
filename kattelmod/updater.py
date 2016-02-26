@@ -2,8 +2,6 @@ import time
 import threading
 import logging
 
-from katpoint import Timestamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +30,17 @@ class SingleThreadError(Exception):
 
 
 class SingleThreadLock(object):
-    """A lock that only ever allows one thread to use it."""
+    """A 'lock' that only ever allows one thread to use it.
+
+    As soon as another thread attempts to acquire this object (or the same
+    thread re-enters it), an exception is raised. The 'lock' acquisition
+    will therefore never block. This object should therefore be interpreted
+    as an assertion about the threads using it as opposed to a true lock.
+
+    This class ensures that the warp clock will only ever have a single master
+    and slave thread to avoid clock screw-ups.
+
+    """
     def __init__(self):
         self._lock = threading.Lock()
         self.thread_name = ''
@@ -69,8 +77,7 @@ class SingleThreadLock(object):
 class WarpClock(object):
     """Time source with Bed that can warp ahead when both threads sleep."""
     def __init__(self, start_time=None, warp=False):
-        self.offset = 0.0 if start_time is None else \
-                      Timestamp(start_time).secs - time.time()
+        self.offset = 0.0 if start_time is None else start_time - time.time()
         self.warp = warp
         self.bed = Bed()
         self.master_lock = SingleThreadLock()
@@ -124,6 +131,9 @@ class PeriodicUpdaterThread(threading.Thread):
         self.daemon = True
         self.components = components
         self.clock = clock
+        # This is necessary to provide the correct timestamps for async sets
+        for component in components:
+            component._clock = clock
         self.period = period
         self._thread_active = True
 
@@ -143,7 +153,10 @@ class PeriodicUpdaterThread(threading.Thread):
         while self._thread_active:
             timestamp = self.clock.time()
             for component in self.components:
-                component.update(timestamp)
+                # Force all sensor updates to happen at the same timestamp
+                component._update_time = timestamp
+                component._update(timestamp)
+                component._update_time = 0.0
             after_update = self.clock.time()
             update_time = after_update - timestamp
             remaining_time = self.period - update_time

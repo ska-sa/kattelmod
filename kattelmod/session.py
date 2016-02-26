@@ -1,209 +1,304 @@
 import logging
+import collections
+import argparse
+import time
 
-import katpoint
+from katpoint import Timestamp
 
-
-user_logger = logging.getLogger('user')
-
-# List of available projections and the default one to use
-PROJECTIONS = katpoint.plane_to_sphere.keys()
-DEFAULT_PROJ = 'ARC'
-# Move default projection to front of list
-PROJECTIONS.remove(DEFAULT_PROJ)
-PROJECTIONS.insert(0, DEFAULT_PROJ)
+from kattelmod.updater import WarpClock, PeriodicUpdaterThread
+from kattelmod.logger import configure_logging
+from kattelmod.component import Component
 
 
-def report_compact_traceback(tb):
-    """Produce a compact traceback report."""
-    print '--------------------------------------------------------'
-    print 'Session interrupted while doing (most recent call last):'
-    print '--------------------------------------------------------'
-    while tb:
-        f = tb.tb_frame
-        print '%s %s(), line %d' % (f.f_code.co_filename, f.f_code.co_name, f.f_lineno)
-        tb = tb.tb_next
-    print '--------------------------------------------------------'
+# Period of component updates, in seconds
+JIFFY = 0.1
 
 
-class ScriptLogHandler(logging.Handler):
-    """Logging handler that writes logging records to HDF5 file via ingest.
+# XXX Replace with enum34.Enum (and fix katmisc along the way to use same)
+class CaptureState(object):
+    """State of data capturing subsystem."""
+    UNKNOWN = 0
+    UNCONFIGURED = 10
+    CONFIGURED = 20
+    INITED = 30
+    STARTED = 40
 
-    Parameters
-    ----------
-    data : :class:`KATClient` object
-        Data proxy device for the session
-
-    """
-    def __init__(self, data):
-        logging.Handler.__init__(self)
-        self.data = data
-
-    def emit(self, record):
-        """Emit a logging record."""
-        try:
-            msg = self.format(record)
-# XXX This probably has to go to cam2spead as a req/sensor combo [YES]
-#            self.data.req.k7w_script_log(msg)
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
+    @classmethod
+    def name(cls, code):
+        states = [v for v in vars(cls) if not v.startswith('_') and v != 'name']
+        return dict((getattr(cls, s), s) for s in states)[code]
 
 
-class ObsParams(dict):
-    """Dictionary-ish that writes observation parameters to CAM SPEAD stream.
+class ObsParams(collections.MutableMapping):
+    """Dictionary-ish that writes observation parameters to obs component.
 
     Parameters
     ----------
-    data : :class:`KATClient` object
-        Data proxy device for the session
-    product : string
-        Name of data product
+    obs : :class:`kattelmod.component.Component` object
+        Observation component for the session
+
+    Notes
+    -----
+    This is based on the collections.MutableMapping abstract base class instead
+    of dict itself. This ensures that dict is properly extended by containing
+    a dict inside ObsParams instead of deriving from it. The problem is that
+    methods such as dict.update() do not honour custom __setitem__ methods.
 
     """
-    def __init__(self, data, product):
-        dict.__init__(self)
-        self.data = data
-        self.product = product
+    def __init__(self, obs):
+        self._dict = dict()
+        self.obs = obs
+
+    def __getitem__(self, key):
+        return self._dict[key]
 
     def __setitem__(self, key, value):
-        # XXX Changing data product name -> ID in a hard-coded fashion
-        self.data.req.set_obs_param(self.product, key, repr(value))
-        dict.__setitem__(self, key, value)
+        """Set item both in dictionary and component."""
+        self.obs.params = "{} {}".format(key, repr(value))
+        self._dict[key] = value
+
+    def __delitem__(self, key):
+        self.obs.params = key
+        del self._dict[key]
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __contains__(self, key):
+        return key in self._dict
+
+    def __str__(self):
+        return str(self._dict)
+
+    def __repr__(self):
+        return repr(self._dict)
 
 
-class RequestSensorError(Exception):
-    """Critical request failed or critical sensor could not be read."""
-    pass
+def flatten(obj):
+    """http://rightfootin.blogspot.co.za/2006/09/more-on-python-flatten.html"""
+    try:
+        it = iter(obj)
+    except TypeError:
+        yield obj
+    else:
+        for e in it:
+            for f in flatten(e):
+                yield f
 
 
 class CaptureSession(object):
+    """Capturing a single subarray product."""
+    def __init__(self, components=()):
+        # Initial logging setup just ensures that we can display early errors
+        configure_logging(logging.WARN)
+        self.components = components
+        # Create corresponding attributes to access components
+        for comp in components:
+            setattr(self, comp._name, comp)
+        self._clock = self._updater = None
+        self.targets = False
+        self.obs_params = ObsParams(self.obs) if 'obs' in self else {}
+        self.logger = logging.getLogger('kat.session')
 
-    def __init__(self, telescope, product, **kwargs):
-        
-        self.telescope = telescope
-        data = telescope.data_rts
-        if not data.is_connected():
-            raise ValueError("Data proxy %r is not connected "
-                             "(is the RTS system running?)" % (data.name,))
-        self.data = data
-
-        # Default settings for session parameters (in case standard_setup is not called)
-        self.receptors = None
-        self.project_id = self.program_id = self.experiment_id = 'interactive'
-        self.stow_when_done = False
-#        self.nd_params = {'diode': 'coupler', 'on': 0., 'off': 0., 'period': -1.}
-#        self.last_nd_firing = 0.
-#        self.output_file = ''
-#        self.dump_period = self._requested_dump_period = 0.0
-        self.horizon = 3.0
-#        self._end_of_previous_session = dbe.sensor.k7w_last_dump_timestamp.get_value()
-        self.obs_params = {}
-
-        # Set data product
-        user_logger.info('Setting data product to %r (this may take a while...)' %
-                         (product,))
-        data.req.capture_init(product)
-
-        user_logger.info('==========================')
-        user_logger.info('New data capturing session')
-        user_logger.info('--------------------------')
-        user_logger.info('Data proxy used = %s' % (data.name,))
-        user_logger.info('Data product = %s' % (product,))
-
-        # Log details of the script to the back-end
-        dbe.req.k7w_set_script_param('script-starttime', time.time())
-        dbe.req.k7w_set_script_param('script-endtime', '')
-        dbe.req.k7w_set_script_param('script-name', sys.argv[0])
-        dbe.req.k7w_set_script_param('script-arguments', ' '.join(sys.argv[1:]))
-        dbe.req.k7w_set_script_param('script-status', 'busy')
-
-        # self.projection
-        # self.coordsystem
-        # self.delay_tracking
-        # self.sources
-        # self.dry_run
-        # self.output_file
-        # self.last_nd_firing
+    def __contains__(self, key):
+        """True if CaptureSession contains top-level component(s) by name or value."""
+        if isinstance(key, Component):
+            return key in self.components
+        elif hasattr(key, '__iter__'):
+            return all(comp in self for comp in key)
+        else:
+            return hasattr(self, key) and getattr(self, key) in self.components
 
     def __enter__(self):
-        pass
+        """Enter context."""
+        if self._initial_state < CaptureState.STARTED:
+            self.capture_start()
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        pass
+        """Exit context."""
+        if self._initial_state < CaptureState.STARTED:
+            self.capture_stop()
+        self.disconnect()
+        # Don't suppress exceptions
+        return False
 
     def time(self):
         """Current time in UTC seconds since Unix epoch."""
-        return self.telescope.time()
+        return self._clock.time()
 
-    def sleep(self, seconds):
+    def sleep(self, seconds, condition=None):
         """Sleep for the requested duration in seconds."""
-        self.telescope.sleep(seconds)
+        self._clock.sleep(seconds, condition)
 
-    def get_centre_freq(self, dbe_if=None):
-        # System-specific
-        pass
+    @property
+    def dry_run(self):
+        return self._clock.warp
+    @dry_run.setter
+    def dry_run(self, flag):
+        all_fake = all([comp._is_fake for comp in flatten(self.components)])
+        if flag and not all_fake:
+            self.logger.warning('Could not enable dry-running as session '
+                                'contains non-fake components')
+        self._clock.warp = flag and all_fake
 
-    def set_centre_freq(self, centre_freq):
-        pass
+    def argparser(self, *args, **kwargs):
+        parser = argparse.ArgumentParser(*args, **kwargs)
+        parser.add_argument('--config', default='mkat/fake_2ant.cfg')
+        parser.add_argument('--description')
+        parser.add_argument('--dont-stop', action='store_true')
+        parser.add_argument('--dry-run', action='store_true')
+        parser.add_argument('--dump-rate', type=float, default=2.0)
+        parser.add_argument('--log-level', default='INFO')
+        parser.add_argument('--start-time')
+        # Positional arguments are assumed to be targets
+        if self.targets:
+            parser.add_argument('targets', metavar='target', nargs='+')
+        return parser
 
-    def standard_setup(self, observer, description, experiment_id=None,
-                       centre_freq=None, dump_rate=1.0, nd_params=None,
-                       stow_when_done=None, horizon=None,
-                       dbe_centre_freq=None, no_mask=False, **kwargs):
-        # System-specific
-        pass
-        
-    def capture_start(self):
-        # System-specific
-        pass
+    def collect_targets(self, targets):
+        return list(targets)
 
+    def _fake(self):
+        """Construct an equivalent fake session."""
+        if hasattr(self.components, '_fake'):
+            return type(self)(self.components._fake())
+        else:
+            return type(self)([comp._fake() for comp in self.components])
+
+    def _configure_logging(self, log_level=None, script_log=True):
+        if log_level is None:
+            log_level = self.obs_params['log_level']
+        script_log_cmd = None
+        if script_log and 'obs' in self:
+            def script_log_cmd(msg):
+                self.obs.script_log = msg
+        configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
+
+    def _start(self, args):
+        # Do product_configure first to get telstate
+        self._initial_state = self.product_configure(args)
+        # Now start components to send attributes to telstate (once-off)
+        self.components._start()
+        # After initial telstate updates it is OK to start periodic updates
+        if self._updater:
+            self._updater.start()
+
+    def _stop(self):
+        # Stop updates first as telstate will disappear in product_deconfigure
+        if self._updater:
+            self._updater.stop()
+            self._updater.join()
+        # Now stop script log handler for same reason
+        self._configure_logging(script_log=False)
+        if self._initial_state < CaptureState.CONFIGURED:
+            self.product_deconfigure()
+        # Stop components (including SDP) after all commands are done
+        self.components._stop()
+
+    def connect(self, args=None):
+        # Get parameters from command line by default for a quick session init
+        if args is None:
+            args = self.argparser().parse_args()
+        # Set up clock and updater once start_time is known
+        self._clock = WarpClock(Timestamp(args.start_time).secs)
+        self.dry_run = args.dry_run
+        updatable_comps = [c for c in flatten(self.components) if c._updatable]
+        self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
+                        if updatable_comps else None
+        # Set up logging once log_level is known and clock is available
+        self._configure_logging(args.log_level)
+        self._start(args)
+        if self._initial_state < CaptureState.INITED:
+            self.capture_init()
+        self.obs_params.update(vars(args))
+        if self.targets:
+            self.targets = self.collect_targets(args.targets)
+        return self
+
+    def disconnect(self):
+        if self._initial_state < CaptureState.INITED:
+            self.capture_done()
+        if not self.obs_params['dont_stop']:
+            self._stop()
+
+    def new_compound_scan(self):
+        yield self
+
+    @property
+    def label(self):
+        return self.obs.label
+    @label.setter
     def label(self, label):
-        # System-specific
-        pass
+        self.obs.label = label
 
-    def set_target(self, target, component=''):
-        # System-specific
-        pass
+    @property
+    def target(self):
+        return self.cbf.target if 'cbf' in self else \
+               self.ants[0].target if 'ants' in self else None
+    @target.setter
+    def target(self, target):
+        if 'ants' in self:
+            self.ants.target = target
+        if 'cbf' in self:
+            self.cbf.target = target
 
-    target = property()
+    @property
+    def observer(self):
+        return self.cbf.observer if 'cbf' in self else \
+               self.ants[0].observer if 'ants' in self else None
 
-    def on_target(self):
-        # System-specific
-        pass
+    def track(self, target, duration, announce=True):
+        self.target = target
+        if announce:
+            self.logger.info("Initiating {:g}-second track on target '{}'"
+                             .format(duration, self.target.name))
+        if 'ants' in self:
+            self.ants.activity = 'slew'
+            self.logger.info('slewing to target')
+            # Wait until we are on target
+            cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])
+            self.sleep(200, cond)
+            self.logger.info('target reached')
+        # Stay on target for desired time
+        self.logger.info('tracking target')
+        self.sleep(duration)
+        self.logger.info('target tracked for {:g} seconds'.format(duration))
+        return True
 
-    def target_visible(self, target=None, duration=0., timeout=300.):
-        # System-specific
-        pass
+"""
+    time
+    sleep
 
-    @dynamic_doc("', '".join(PROJECTIONS), DEFAULT_PROJ)
-    def set_projection(self, projection='', coordsystem=''):
-        # System-specific
-        pass
+    receptors - m062, m063, ...
+    cbf
+    sdp
+    enviro
+    obs -> label / script_log
 
-    def fire_noise_diode(self, diode='coupler', on=10.0, off=10.0, period=0.0,
-                         align=True, announce=True):
-        pass
+    target
 
-    def track(self, duration=20.0, announce=True):
-        # System-specific
-        pass
+req:
+    configure
+#    fire_noise_diode
 
-    def scan(self, duration=30.0, start=(-3.0, 0.0), end=(3.0, 0.0), index=-1,
-             announce=True):
-        pass
+    capture_init
+    capture_start
+    capture_stop
+    capture_done
 
-    def raster_scan(self, num_scans=3, scan_duration=30.0, scan_extent=6.0,
-                    scan_spacing=0.5, announce=True):
-        pass
+sensor:
+    centre_freq
+    band
+    dump_rate
+    product
 
-    def radial_scan(self, num_scans=3, scan_duration=30.0, scan_extent=6.0,
-                    announce=True):
-        pass
-
-    def generic_scan(self, scanfunc, duration=30.0, scale=1.0, announce=True):
-        pass
-
-    def end(self, interrupted=False):
-        # System-specific
-        pass
+receptors:
+    on_target
+    load_scan
+    track
+    scan
+"""

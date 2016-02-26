@@ -1,0 +1,2 @@
+recursive-include kattelmod/systems *.cfg
+recursive-include kattelmod/systems *.txt
