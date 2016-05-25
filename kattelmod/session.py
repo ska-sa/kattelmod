@@ -7,7 +7,7 @@ from katpoint import Timestamp
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
 from kattelmod.logger import configure_logging
-from kattelmod.component import Component
+from kattelmod.component import Component, flatten
 
 
 # Period of component updates, in seconds
@@ -75,18 +75,6 @@ class ObsParams(collections.MutableMapping):
 
     def __repr__(self):
         return repr(self._dict)
-
-
-def flatten(obj):
-    """http://rightfootin.blogspot.co.za/2006/09/more-on-python-flatten.html"""
-    try:
-        it = iter(obj)
-    except TypeError:
-        yield obj
-    else:
-        for e in it:
-            for f in flatten(e):
-                yield f
 
 
 class CaptureSession(object):

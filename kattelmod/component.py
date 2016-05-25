@@ -30,6 +30,18 @@ def _sensor_transform(sensor_value):
     return custom.get(sensor_value.__class__, lambda obj: obj)(sensor_value)
 
 
+def flatten(obj):
+    """http://rightfootin.blogspot.co.za/2006/09/more-on-python-flatten.html"""
+    try:
+        it = iter(obj)
+    except TypeError:
+        yield obj
+    else:
+        for e in it:
+            for f in flatten(e):
+                yield f
+
+
 class Component(object):
     """Basic element of telescope system that provides monitoring and control."""
     def __init__(self):
@@ -280,7 +292,10 @@ class MultiComponent(Component):
 
     @property
     def _sensors(self):
-        return []
+        sensors = []
+        for comp in flatten(self._comps):
+            sensors.extend('{}_{}'.format(comp._name, s) for s in comp._sensors)
+        return sensors
 
     def _fake(self):
         """Construct an equivalent fake component by faking subcomponents."""
