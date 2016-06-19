@@ -63,7 +63,7 @@ class ScienceDataProcessor(KATCPComponent):
     def product_deconfigure(self):
         self._validate()
         prod_conf = self._client.req.data_product_configure
-        prod_conf(self.subarray_product, '', timeout=10)
+        prod_conf(self.subarray_product, '', timeout=300)
 
     def get_telstate(self):
         self._validate()
@@ -77,4 +77,4 @@ class ScienceDataProcessor(KATCPComponent):
 
     def capture_done(self):
         self._validate()
-        self._client.req.capture_done(self.subarray_product, timeout=10)
+        self._client.req.capture_done(self.subarray_product, timeout=300)
