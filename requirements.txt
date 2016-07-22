@@ -33,6 +33,7 @@ path.py==8.1.2
 pbr
 pexpect==4.0.1
 pickleshare==0.6
+pkginfo
 ply
 ProxyTypes
 ptyprocess==0.5.1
