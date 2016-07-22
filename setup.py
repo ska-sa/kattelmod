@@ -19,6 +19,7 @@ setup(name="kattelmod",
       keywords="meerkat ska",
       # Include the contents of MANIFEST.in (the system config files)
       include_package_data=True,
+      package_data={'': ['systems/*/*.cfg', 'systems/*/*.txt']},
       zip_safe=False,
       test_suite="nose.collector",
       setup_requires=['katversion'],
