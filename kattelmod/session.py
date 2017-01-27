@@ -151,7 +151,6 @@ class CaptureSession(object):
         parser.add_argument('--description')
         parser.add_argument('--dont-stop', action='store_true')
         parser.add_argument('--dry-run', action='store_true')
-        parser.add_argument('--dump-rate', type=float, default=2.0)
         parser.add_argument('--log-level', default='INFO')
         parser.add_argument('--start-time')
         # Positional arguments are assumed to be targets
