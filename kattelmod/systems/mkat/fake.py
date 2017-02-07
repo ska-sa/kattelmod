@@ -29,7 +29,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
     @property
     def target(self):
         return self._target
-    @target.setter
+    @target.setter  # noqa: E301
     def target(self, target):
         new_target = Target(target, antenna=self._observer) if target else ''
         if new_target != self._target and self.activity in ('scan', 'track', 'slew'):
@@ -43,7 +43,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
             return
         az, el = self.pos_actual_scan_azim, self.pos_actual_scan_elev
         target = construct_azel_target(deg2rad(az), deg2rad(90.0)) \
-                 if self.activity == 'stow' else self.target
+            if self.activity == 'stow' else self.target
         if not target:
             return
         requested_az, requested_el = target.azel(timestamp, self.observer)
@@ -72,7 +72,8 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
         self.pos_request_scan_elev = requested_el
         self.pos_actual_scan_azim = az
         self.pos_actual_scan_elev = el
-        # print 'elapsed: %g, max_daz: %g, max_del: %g, daz: %g, del: %g, error: %g' % (elapsed_time, max_delta_az, max_delta_el, delta_az, delta_el, error)
+        # print 'elapsed: %g, max_daz: %g, max_del: %g, daz: %g, del: %g, error: %g' % \
+        #       (elapsed_time, max_delta_az, max_delta_el, delta_az, delta_el, error)
 
 
 class Environment(TelstateUpdatingComponent):

@@ -18,7 +18,7 @@ class CaptureSession(BaseCaptureSession):
         else:
             endpoint = ''
         return None if not endpoint else TelescopeState(endpoint) \
-               if endpoint != 'fake' else FakeTelescopeState()
+            if endpoint != 'fake' else FakeTelescopeState()
 
     def product_configure(self, args):
         initial_state = CaptureState.UNKNOWN

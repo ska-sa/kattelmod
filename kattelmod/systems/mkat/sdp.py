@@ -3,7 +3,7 @@
 from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
                                  TargetObserverMixin)
 from kattelmod.session import CaptureState
-from kattelmod.systems.mkat.fake import Observation
+from kattelmod.systems.mkat.fake import Observation  # noqa: F401
 
 
 class ConnectionError(IOError):
@@ -42,13 +42,13 @@ class ScienceDataProcessor(KATCPComponent):
                   'init_wait': CaptureState.INITED,
                   'capturing': CaptureState.STARTED}
         return lookup.get(msg.reply.arguments[1], CaptureState.UNKNOWN) \
-               if msg.succeeded else CaptureState.UNCONFIGURED
+            if msg.succeeded else CaptureState.UNCONFIGURED
 
     def product_configure(self, product, dump_rate, receptors, sub_nr):
         subarray_product = 'array_{}_{}'.format(sub_nr, product)
         # Kludge to get semi-decent channels (as long as > 0 SDPMC will accept it)
         channels = 4096 if product.endswith('4k') else \
-                  32768 if product.endswith('32k') else 1
+            32768 if product.endswith('32k') else 1
         self._validate(post_configure=False)
         initial_state = self.get_capture_state(subarray_product)
         prod_conf = self._client.req.data_product_configure

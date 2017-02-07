@@ -52,7 +52,7 @@ def session_from_config(config_file):
         comps = []
         for name in names:
             params = {k: np.safe_eval(v) for k, v in cfg.items(name)} \
-                     if cfg.has_section(name) else {}
+                if cfg.has_section(name) else {}
             if comp_type.endswith('AntennaPositioner'):
                 # XXX Complain if antenna is unknown
                 params['observer'] = all_ants.get(name, '')

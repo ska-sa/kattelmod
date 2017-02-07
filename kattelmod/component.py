@@ -17,9 +17,11 @@ logger = logging.getLogger(__name__)
 # Minimum time that has to elapse before rate-limited sensor values are sent again
 SENSOR_MIN_PERIOD = 0.4
 
+
 def is_rate_limited(sensor_name):
     """Test whether sensor will have rate-limited updates."""
     return sensor_name.startswith('pos_')
+
 
 def _sensor_transform(sensor_value):
     """Extract appropriate representation for sensors to put in telstate."""
@@ -58,8 +60,7 @@ class Component(object):
     @property
     def _sensors(self):
         return [name for name in sorted(dir(self))
-                if not name.startswith('_') and
-                   not callable(getattr(self, name))]
+                if not name.startswith('_') and not callable(getattr(self, name))]
 
     def _initialise_attributes(self, params):
         """Assign parameters in dict *params* to attributes."""
@@ -107,7 +108,7 @@ class TelstateUpdatingComponent(Component):
         super(TelstateUpdatingComponent, self).__setattr__(attr_name, value)
         # Do sensor updates (either event or event-rate SENSOR_MIN_PERIOD)
         time_to_send = not is_rate_limited(attr_name) or \
-                       self._last_rate_limited_send == self._last_update
+            self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
             # Use fixed update time while within an update() call
@@ -123,7 +124,7 @@ class TelstateUpdatingComponent(Component):
 
     def _update(self, timestamp):
         self._elapsed_time = timestamp - self._last_update \
-                             if self._last_update else 0.0
+            if self._last_update else 0.0
         self._last_update = timestamp
         if timestamp - self._last_rate_limited_send > SENSOR_MIN_PERIOD:
             self._last_rate_limited_send = timestamp
@@ -226,6 +227,7 @@ class MultiComponent(Component):
         # Create corresponding attributes to access components
         for comp in comps:
             super(MultiComponent, self).__setattr__(comp._name, comp)
+
         def api_methods(obj):
             return {k: getattr(obj, k) for k in dir(obj)
                     if callable(getattr(obj, k)) and not k.endswith('__')}
@@ -298,7 +300,7 @@ class TargetObserverMixin(object):
     @property
     def observer(self):
         return self._observer
-    @observer.setter
+    @observer.setter  # noqa: E301
     def observer(self, observer):
         self._observer = Antenna(observer) if observer else ''
         if self._target:
@@ -307,7 +309,7 @@ class TargetObserverMixin(object):
     @property
     def target(self):
         return self._target
-    @target.setter
+    @target.setter  # noqa: E301
     def target(self, target):
         self._target = Target(target, antenna=self._observer) if target else ''
 
