@@ -2,6 +2,7 @@ import logging
 import collections
 import argparse
 
+from enum import IntEnum
 from katpoint import Timestamp
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
@@ -13,19 +14,14 @@ from kattelmod.component import Component
 JIFFY = 0.1
 
 
-# XXX Replace with enum34.Enum (and fix katmisc along the way to use same)
-class CaptureState(object):
+# Ideally use an OrderedEnum but there should be no confusion with only one enum
+class CaptureState(IntEnum):
     """State of data capturing subsystem."""
     UNKNOWN = 0
     UNCONFIGURED = 10
     CONFIGURED = 20
     INITED = 30
     STARTED = 40
-
-    @classmethod
-    def name(cls, code):
-        states = [v for v in vars(cls) if not v.startswith('_') and v != 'name']
-        return dict((getattr(cls, s), s) for s in states)[code]
 
 
 class ObsParams(collections.MutableMapping):
