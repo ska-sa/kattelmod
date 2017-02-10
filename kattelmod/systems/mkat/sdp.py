@@ -1,5 +1,7 @@
 """Components for a standalone version of the SDP subsystem."""
 
+import json
+
 from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
                                  TargetObserverMixin)
 from kattelmod.session import CaptureState
@@ -24,7 +26,7 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 
 
 class ScienceDataProcessor(KATCPComponent):
-    def __init__(self, master_controller, cbf_spead):
+    def __init__(self, master_controller, input_streams):
         super(ScienceDataProcessor, self).__init__(master_controller)
         self._initialise_attributes(locals())
         self.subarray_product = ''
@@ -52,8 +54,12 @@ class ScienceDataProcessor(KATCPComponent):
         self._validate(post_configure=False)
         initial_state = self.get_capture_state(subarray_product)
         prod_conf = self._client.req.data_product_configure
+        # Convert streams to string version (don't care about unicode on py2)
+        streams = self.input_streams
+        if not isinstance(streams, str):
+            streams = json.dumps(streams)
         msg = prod_conf(subarray_product, receptors, channels, dump_rate,
-                        0, self.cbf_spead, ':7147', timeout=300)
+                        0, streams, timeout=300)
         if not msg.succeeded:
             raise ConfigurationError("Failed to configure product: " +
                                      msg.reply.arguments[1])
