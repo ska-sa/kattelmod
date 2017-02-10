@@ -1,8 +1,8 @@
 import logging
 import collections
 import argparse
-import time
 
+from enum import IntEnum
 from katpoint import Timestamp
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
@@ -14,19 +14,14 @@ from kattelmod.component import Component
 JIFFY = 0.1
 
 
-# XXX Replace with enum34.Enum (and fix katmisc along the way to use same)
-class CaptureState(object):
+# Ideally use an OrderedEnum but there should be no confusion with only one enum
+class CaptureState(IntEnum):
     """State of data capturing subsystem."""
     UNKNOWN = 0
     UNCONFIGURED = 10
     CONFIGURED = 20
     INITED = 30
     STARTED = 40
-
-    @classmethod
-    def name(cls, code):
-        states = [v for v in vars(cls) if not v.startswith('_') and v != 'name']
-        return dict((getattr(cls, s), s) for s in states)[code]
 
 
 class ObsParams(collections.MutableMapping):
@@ -137,7 +132,7 @@ class CaptureSession(object):
     @property
     def dry_run(self):
         return self._clock.warp
-    @dry_run.setter
+    @dry_run.setter  # noqa: E301
     def dry_run(self, flag):
         all_fake = all([comp._is_fake for comp in flatten(self.components)])
         if flag and not all_fake:
@@ -207,7 +202,7 @@ class CaptureSession(object):
         self.dry_run = args.dry_run
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
         self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
-                        if updatable_comps else None
+            if updatable_comps else None
         # Set up logging once log_level is known and clock is available
         self._configure_logging(args.log_level)
         self._start(args)
@@ -230,15 +225,15 @@ class CaptureSession(object):
     @property
     def label(self):
         return self.obs.label
-    @label.setter
+    @label.setter  # noqa: E301
     def label(self, label):
         self.obs.label = label
 
     @property
     def target(self):
         return self.cbf.target if 'cbf' in self else \
-               self.ants[0].target if 'ants' in self else None
-    @target.setter
+            self.ants[0].target if 'ants' in self else None
+    @target.setter  # noqa: E301
     def target(self, target):
         if 'ants' in self:
             self.ants.target = target
@@ -248,7 +243,7 @@ class CaptureSession(object):
     @property
     def observer(self):
         return self.cbf.observer if 'cbf' in self else \
-               self.ants[0].observer if 'ants' in self else None
+            self.ants[0].observer if 'ants' in self else None
 
     def track(self, target, duration, announce=True):
         self.target = target
@@ -259,7 +254,7 @@ class CaptureSession(object):
             self.ants.activity = 'slew'
             self.logger.info('slewing to target')
             # Wait until we are on target
-            cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])
+            cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])  # noqa: E731
             self.sleep(200, cond)
             self.logger.info('target reached')
         # Stay on target for desired time

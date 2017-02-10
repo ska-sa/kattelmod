@@ -106,7 +106,7 @@ def configure_logging(level, script_log_cmd=None, clock=time, dry_run=False):
         if script_log_cmd:
             logging.root.addHandler(RobustDeliveryHandler(script_log_cmd))
     # Script log formatter has UT timestamps and indication of dry running
-    fmt='%(asctime)s.%(msecs)03dZ %(name)-10s %(levelname)-8s %(message)s'
+    fmt = '%(asctime)s.%(msecs)03dZ %(name)-10s %(levelname)-8s %(message)s'
     if dry_run:
         fmt = 'DRYRUN: ' + fmt
     formatter = logging.Formatter(fmt, datefmt='%Y-%m-%d %H:%M:%S')
