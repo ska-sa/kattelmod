@@ -5,7 +5,6 @@ import json
 from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
                                  TargetObserverMixin)
 from kattelmod.session import CaptureState
-from kattelmod.systems.mkat.fake import Observation  # noqa: F401
 
 
 class ConnectionError(IOError):
