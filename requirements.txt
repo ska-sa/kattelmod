@@ -5,6 +5,7 @@ cycler==0.10.0
 cython
 decorator
 enum34
+fakeredis
 funcsigs
 functools32==3.2.3.post2
 futures
