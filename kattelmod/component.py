@@ -116,7 +116,7 @@ class TelstateUpdatingComponent(Component):
             # If this is initial sensor update, move it into recent past to
             # avoid race conditions in e.g. CBF simulator that reads it
             if not self._last_update:
-                ts -= 10.0
+                ts -= 30.0
             logger.debug("telstate {} {} {}"
                          .format(ts, sensor_name, _sensor_transform(value)))
             self._telstate.add(sensor_name, _sensor_transform(value),
