@@ -2,7 +2,9 @@ import weakref
 import types
 import logging
 
-from kattelmod.fake.sensor import FakeSensor, escape_name
+from katcp.resource import KATCPSensor
+from kattelmod.fake.sensor import (escape_name, sensor_args_to_kwargs,
+                                   FakeSensorsManager)
 
 
 user_logger = logging.getLogger("user")
@@ -19,15 +21,17 @@ class IgnoreUnknownMethods(object):
 
 class FakeClient(object):
     """Fake KATCP client."""
-    def __init__(self, name, model, config, clock):
+    def __init__(self, name, model, config, fake_sensors_manager):
         self.name = name
         self.model = object.__new__(model)
         self.req = IgnoreUnknownMethods()
         self.sensor = IgnoreUnknownMethods()
         attrs = config[name]['attrs']
         sensors = config[name]['sensors']
+        self._fake_sensors_manager = fake_sensors_manager
         for sensor_args in sensors:
-            sensor = FakeSensor(*sensor_args, clock=clock)
+            sensor_kwargs = sensor_args_to_kwargs(sensor_args)
+            sensor = KATCPSensor(sensor_kargs, fake_sensors_manager)
             setattr(self.sensor, sensor.name, sensor)
         self._clock = clock
         self._aggregates = {}

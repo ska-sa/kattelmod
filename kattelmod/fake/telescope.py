@@ -7,9 +7,10 @@ from katpoint import Catalogue
 from katcp import DeviceServer
 from katcp.kattypes import return_reply, Str
 from katcp.ioloop_manager import IOLoopManager
+from katcp.resource import KATCPSensor
 
-from kattelmod.fake.updater import WarpClock, PeriodicUpdaterThread
-from kattelmod.fake.sensor import FakeSensor
+from kattelmod.fake.updater import IOLoopWarpClock, PeriodicUpdaterThread
+from kattelmod.fake.sensor import FakeSensorsManager, sensor_args_to_kwargs
 from kattelmod.fake.client import FakeClient, ClientGroup, IgnoreUnknownMethods
 from kattelmod.fake import models
 
@@ -36,12 +37,14 @@ class FakeCamEventServer(DeviceServer):
     def __init__(self, attributes, sensors, *args, **kwargs):
         self.attributes = attributes
         self.sensors = np.loadtxt(sensors, delimiter=',', skiprows=1, dtype=np.str)
+        self._fake_sensors_manager = FakeSensorsManager() #  TODO
         super(FakeCamEventServer, self).__init__(*args, **kwargs)
 
     def setup_sensors(self):
         """Populate sensor objects on server."""
         for fields in self.sensors:
-            self.add_sensor(FakeSensor(*[f.strip() for f in fields]))
+            sensor_kwargs = sensor_args_to_kwargs([f.strip() for f in fields])
+            self.add_sensor(FakeSensor(sensor_kwargs, self.))
 
     @return_reply(Str())
     def request_get_attributes(self, req, msg):
@@ -81,7 +84,8 @@ class FakeTelescope(object):
     def __init__(self, config_file, dry_run=False, start_time=None):
         self._config = load_config(config_file)
         self.sensors = IgnoreUnknownMethods()
-        self._clock = WarpClock(start_time, dry_run)
+        period = 0.1 if dry_run else None
+        self._clock = IOLoopWarpClock(start_time, dry_run)
         self._clients = []
         groups = {}
         for comp_name, component in self._config.items():
@@ -136,6 +140,7 @@ class FakeTelescope(object):
     @property
     def dry_run(self):
         return self._clock.warp
+
     @dry_run.setter
     def dry_run(self, flag):
         self._clock.warp = flag
