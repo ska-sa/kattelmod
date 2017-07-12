@@ -4,9 +4,9 @@ from importlib import import_module
 
 from katpoint import Antenna, Target
 from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
-                                   ThreadSafeKATCPClientResourceWrapper,
-                                   TimeoutError)
+                                   ThreadSafeKATCPClientResourceWrapper)
 from katcp.ioloop_manager import IOLoopManager
+from concurrent.futures import TimeoutError
 
 from kattelmod.telstate import endpoint_parser
 
