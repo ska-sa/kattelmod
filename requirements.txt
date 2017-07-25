@@ -8,6 +8,7 @@ enum34
 fakeredis
 funcsigs
 functools32==3.2.3.post2
+future
 futures
 h5py
 ipykernel==4.2.2
