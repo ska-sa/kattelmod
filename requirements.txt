@@ -11,6 +11,7 @@ functools32==3.2.3.post2
 future
 futures
 h5py
+ipaddress
 ipykernel==4.2.2
 ipython-genutils==0.1.0
 ipython==4.1.1
