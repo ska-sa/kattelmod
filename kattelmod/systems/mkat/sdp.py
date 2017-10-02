@@ -62,7 +62,7 @@ class ScienceDataProcessor(KATCPComponent):
             streams = self.input_streams
             if not isinstance(streams, str):
                 streams = json.dumps(streams)
-            msg = prod_conf(subarray_product, ','.join(receptors), channels, dump_rate,
+            msg = prod_conf(subarray_product, ','.join(receptors), channels, sub.dump_rate,
                             0, streams, timeout=300)
         else:
             config = self.config
