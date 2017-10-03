@@ -26,8 +26,7 @@ class CaptureSession(BaseCaptureSession):
             ants = [comp._name for comp in self.ants]
             self.sdp._start()
             prod_conf = self.sdp.product_configure
-            initial_state = prod_conf(self.sub.product, self.sub.dump_rate,
-                                      ','.join(sorted(ants)), self.sub.sub_nr)
+            initial_state = prod_conf(self.sub, sorted(ants))
         self._telstate = self.components._telstate = self._get_telstate(args)
         return initial_state
 
