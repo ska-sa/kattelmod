@@ -2,10 +2,10 @@ import os.path
 from ConfigParser import SafeConfigParser, Error
 from importlib import import_module
 
-import numpy as np
-
 import kattelmod.systems
 from kattelmod.component import MultiComponent, construct_component
+
+import json
 
 
 def session_from_config(config_file):
@@ -51,7 +51,7 @@ def session_from_config(config_file):
             names = [comp_name]
         comps = []
         for name in names:
-            params = {k: np.safe_eval(v) for k, v in cfg.items(name)} \
+            params = {k: json.loads(v) for k, v in cfg.items(name)} \
                 if cfg.has_section(name) else {}
             if comp_type.endswith('AntennaPositioner'):
                 # XXX Complain if antenna is unknown

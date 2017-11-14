@@ -24,7 +24,7 @@ product = "kattelmod"
 dump_rate = ${dump_rate}
 
 [sdp]
-master_controller = '${mc}:5001'
+master_controller = "${mc}:5001"
 config = ${config}
 """)
 
@@ -131,12 +131,9 @@ def generate(argv):
             "store": "ram"
         }
 
-    # HACK: json.dumps gives a much more readable output than pprint.pformat.
-    # However, it outputs "true"/"false" rather than "True"/"False", so we
-    # make a quick-n-dirty fix to that.
     config_str = json.dumps(config, indent=4, sort_keys=True)
-    config_str = config_str.replace('true', 'True').replace('false', 'False')
-    # Also need to indent the whole thing
+    # Also need to indent the whole thing, to stop the final } from
+    # being in the left-most column.
     config_str = config_str.replace('\n', '\n    ')
     content = TEMPLATE.substitute(
         ants=','.join('m{:03}'.format(ant) for ant in sorted(ANTENNA_ORDER[:args.antennas])),
