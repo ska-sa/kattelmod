@@ -48,6 +48,7 @@ def generate(argv):
     parser.add_argument('-r', '--dump-rate', type=float, default=0.25)
     parser.add_argument('-c', '--channels', type=int, choices=[4096, 32768], default=4096)
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
+    parser.add_argument('--develop', action='store_true')
     parser.add_argument('--band', choices=['l'], default='l')
     parser.add_argument('--beamformer', choices=['none', 'engineering', 'ptuse'],
                         default='none')
@@ -130,6 +131,8 @@ def generate(argv):
             "output_channels": [0, args.channels],
             "store": "ram"
         }
+    if args.develop:
+        config["config"]["develop"] = True
 
     config_str = json.dumps(config, indent=4, sort_keys=True)
     # Also need to indent the whole thing, to stop the final } from
