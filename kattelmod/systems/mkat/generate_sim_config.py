@@ -34,7 +34,7 @@ ANTENNA_ORDER = [62, 63, 0, 2, 4, 6, 8, 11, 13, 15, 17, 19, 22, 30, 39, 56,
                  1, 3, 5, 7, 10, 12, 14, 18, 20, 21, 24, 25, 31, 34, 36, 42,
                  49, 57, 58, 59, 60, 61, 9, 16, 23, 26, 27, 28, 29, 32, 33, 35,
                  37, 38, 40, 41, 43, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55]
-assert sorted(ANTENNA_ORDER) == range(64)
+assert sorted(ANTENNA_ORDER) == list(range(64))
 MASTER_MAP = {
     'site': 'mc1.sdp.mkat.karoo.kat.ac.za',
     'lab': 'sdp-ingest5.kat.ac.za',
@@ -48,6 +48,7 @@ def generate(argv):
     parser.add_argument('-r', '--dump-rate', type=float, default=0.25)
     parser.add_argument('-c', '--channels', type=int, choices=[4096, 32768], default=4096)
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
+    parser.add_argument('--develop', action='store_true')
     parser.add_argument('--band', choices=['l'], default='l')
     parser.add_argument('--beamformer', choices=['none', 'engineering', 'ptuse'],
                         default='none')
@@ -130,6 +131,8 @@ def generate(argv):
             "output_channels": [0, args.channels],
             "store": "ram"
         }
+    if args.develop:
+        config["config"]["develop"] = True
 
     config_str = json.dumps(config, indent=4, sort_keys=True)
     # Also need to indent the whole thing, to stop the final } from
