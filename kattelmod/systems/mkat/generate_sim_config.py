@@ -63,7 +63,7 @@ def generate(argv):
     n_accs = int(round(0.5 * bandwidth / args.channels / 256)) * 256
     cbf_int_time = n_accs * args.channels / bandwidth
     config = {
-        "version": "1.0",
+        "version": "1.1",
         "inputs": {
             "i0_antenna_channelised_voltage": {
                 "type": "cbf.antenna_channelised_voltage",
@@ -84,7 +84,14 @@ def generate(argv):
                 "xeng_out_bits_per_sample": 32,
                 "n_chans_per_substream": args.channels // groups,
                 "instrument_dev_name": "i0",
-                "simulate": True
+                "simulate": {
+                    "center_freq": 1284000000.0,
+                    "sources": [
+                        "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
+                        "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
+                        "3C286, radec, 13:31:08.29, +30:30:33.0,(800.0 43200.0 0.956 0.584 -0.1644)"
+                    ]
+                }
             }
         },
         "outputs": {
@@ -97,6 +104,10 @@ def generate(argv):
                 "type": "sdp.l0",
                 "src_streams": ["i0_baseline_correlation_products"],
                 "continuum_factor": 16
+            },
+            "cal": {
+                "type": "sdp.cal",
+                "src_streams": ["sdp_l0"]
             }
         },
         "config": {}
@@ -111,7 +122,14 @@ def generate(argv):
                 "n_chans_per_substream": args.channels // groups,
                 "beng_out_bits_per_sample": 8,
                 "instrument_dev_name": "i0",
-                "simulate": True
+                "simulate": {
+                    "center_freq": 1284000000.0,
+                    "sources": [
+                        "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
+                        "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
+                        "3C286, radec, 13:31:08.29, +30:30:33.0,(800.0 43200.0 0.956 0.584 -0.1644)"
+                    ]
+                }
             }
     if args.beamformer == 'ptuse':
         config["outputs"]["sdp_beamformer"] = {
