@@ -25,12 +25,8 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 
 
 class ScienceDataProcessor(KATCPComponent):
-    def __init__(self, master_controller, input_streams=None, config=None):
+    def __init__(self, master_controller, config):
         super(ScienceDataProcessor, self).__init__(master_controller)
-        if input_streams is None and config is None:
-            raise ValueError('Must specify one of input_streams or config')
-        if input_streams is not None and config is not None:
-            raise ValueError('Cannot specify both input_streams and canfig')
         self._initialise_attributes(locals())
         self.subarray_product = ''
 
@@ -53,31 +49,19 @@ class ScienceDataProcessor(KATCPComponent):
         subarray_product = 'array_{}_{}'.format(sub.sub_nr, sub.product)
         self._validate(post_configure=False)
         initial_state = self.get_capture_state(subarray_product)
-        if self.input_streams is not None:
-            # Kludge to get semi-decent channels (as long as > 0 SDPMC will accept it)
-            channels = 4096 if sub.product.endswith('4k') else \
-                32768 if sub.product.endswith('32k') else 1
-            prod_conf = self._client.req.data_product_configure
-            # Convert streams to string version (don't care about unicode on py2)
-            streams = self.input_streams
-            if not isinstance(streams, str):
-                streams = json.dumps(streams)
-            msg = prod_conf(subarray_product, ','.join(receptors), channels, sub.dump_rate,
-                            0, streams, timeout=300)
-        else:
-            config = self.config
-            if not isinstance(config, dict):
-                config = json.loads(config)
-            # Insert the antenna list
-            for input_ in config['inputs'].values():
-                if input_['type'] == 'cbf.antenna_channelised_voltage':
-                    input_['antennas'] = receptors
-            # Insert the dump rate
-            for output in config['outputs'].values():
-                if output['type'] == 'sdp.l0':
-                    output['output_int_time'] = 1.0 / sub.dump_rate
-            msg = self._client.req.product_configure(subarray_product, json.dumps(config),
-                                                     timeout=300)
+        config = self.config
+        if not isinstance(config, dict):
+            config = json.loads(config)
+        # Insert the antenna list
+        for input_ in config['inputs'].values():
+            if input_['type'] == 'cbf.antenna_channelised_voltage':
+                input_['antennas'] = receptors
+        # Insert the dump rate
+        for output in config['outputs'].values():
+            if output['type'] == 'sdp.l0':
+                output['output_int_time'] = 1.0 / sub.dump_rate
+        msg = self._client.req.product_configure(subarray_product, json.dumps(config),
+                                                 timeout=300)
         if not msg.succeeded:
             raise ConfigurationError("Failed to configure product: " +
                                      msg.reply.arguments[1])
@@ -86,8 +70,8 @@ class ScienceDataProcessor(KATCPComponent):
 
     def product_deconfigure(self):
         self._validate()
-        prod_conf = self._client.req.data_product_configure
-        prod_conf(self.subarray_product, '', timeout=300)
+        prod_conf = self._client.req.product_deconfigure
+        prod_conf(self.subarray_product, timeout=300)
 
     def get_telstate(self):
         self._validate()
