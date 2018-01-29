@@ -5,7 +5,7 @@ cycler==0.10.0
 cython
 decorator
 enum34
-fakeredis
+fakenewsredis
 funcsigs
 functools32==3.2.3.post2
 future
@@ -39,7 +39,6 @@ pexpect==4.0.1
 pickleshare==0.6
 pkginfo
 ply
-ProxyTypes
 ptyprocess==0.5.1
 pyephem
 pygments
