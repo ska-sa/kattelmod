@@ -1,4 +1,4 @@
-FROM sdp-docker-registry.kat.ac.za:5000/docker-base:xenial
+FROM sdp-docker-registry.kat.ac.za:5000/docker-base
 
 MAINTAINER Ludwig Schwardt "ludwig@ska.ac.za"
 
