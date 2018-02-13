@@ -52,10 +52,17 @@ class ScienceDataProcessor(KATCPComponent):
         config = self.config
         if not isinstance(config, dict):
             config = json.loads(config)
-        # Insert the antenna list
+        # Insert the antenna list and antenna positions
         for input_ in config['inputs'].values():
             if input_['type'] == 'cbf.antenna_channelised_voltage':
-                input_['antennas'] = receptors
+                input_['antennas'] = [receptor.name for receptor in receptors]
+            if input_['type'] in ['cbf.baseline_correlation_products',
+                                  'cbf.tied_array_channelised_voltage']:
+                simulate = input_.get('simulate', False)
+                if simulate is True:
+                    simulate = input_['simulate'] = {}  # Upgrade to 1.1 API
+                if isinstance(simulate, dict):
+                    simulate['antennas'] = [receptor.description for receptor in receptors]
         # Insert the dump rate
         for output in config['outputs'].values():
             if output['type'] == 'sdp.l0':

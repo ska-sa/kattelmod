@@ -1,4 +1,4 @@
-FROM sdp-docker-registry.kat.ac.za:5000/docker-base:xenial
+FROM sdp-docker-registry.kat.ac.za:5000/docker-base
 
 MAINTAINER Ludwig Schwardt "ludwig@ska.ac.za"
 
@@ -9,7 +9,7 @@ RUN install-requirements.py --default-versions ~/docker-base/base-requirements.t
 # Install the current package
 COPY . /tmp/install/kattelmod
 WORKDIR /tmp/install/kattelmod
-RUN python ./setup.py clean && pip install --no-index .
+RUN python ./setup.py clean && pip install --no-deps . && pip check
 
 # Expose Jupyter port
 EXPOSE 8888

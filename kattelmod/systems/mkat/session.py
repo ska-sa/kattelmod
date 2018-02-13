@@ -23,7 +23,7 @@ class CaptureSession(BaseCaptureSession):
     def product_configure(self, args):
         initial_state = CaptureState.UNKNOWN
         if ('sub', 'sdp', 'ants') in self:
-            ants = [comp._name for comp in self.ants]
+            ants = [comp.observer for comp in self.ants]
             self.sdp._start()
             prod_conf = self.sdp.product_configure
             initial_state = prod_conf(self.sub, sorted(ants))
