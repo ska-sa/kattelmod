@@ -118,4 +118,4 @@ class Observation(TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self.label = ''
         self.script_log = ''
-        self.activity = ''
+        self.activity = 'idle'

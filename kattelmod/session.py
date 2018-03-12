@@ -205,13 +205,14 @@ class CaptureSession(object):
             self.logger.info("Initiating {:g}-second track on target '{}'"
                              .format(duration, self.target.name))
         if 'ants' in self:
-            self.ants.activity = 'slew'
+            self.ants.activity = self.obs.activity = 'slew'
             self.logger.info('slewing to target')
             # Wait until we are on target
             cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])  # noqa: E731
             self.sleep(200, cond)
             self.logger.info('target reached')
         # Stay on target for desired time
+        self.obs.activity = 'track'
         self.logger.info('tracking target')
         self.sleep(duration)
         self.logger.info('target tracked for {:g} seconds'.format(duration))
