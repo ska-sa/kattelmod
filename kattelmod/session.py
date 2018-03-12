@@ -1,5 +1,4 @@
 import logging
-import collections
 import argparse
 
 from enum import IntEnum
@@ -24,54 +23,6 @@ class CaptureState(IntEnum):
     STARTED = 40
 
 
-class ObsParams(collections.MutableMapping):
-    """Dictionary-ish that writes observation parameters to obs component.
-
-    Parameters
-    ----------
-    obs : :class:`kattelmod.component.Component` object
-        Observation component for the session
-
-    Notes
-    -----
-    This is based on the collections.MutableMapping abstract base class instead
-    of dict itself. This ensures that dict is properly extended by containing
-    a dict inside ObsParams instead of deriving from it. The problem is that
-    methods such as dict.update() do not honour custom __setitem__ methods.
-
-    """
-    def __init__(self, obs):
-        self._dict = dict()
-        self.obs = obs
-
-    def __getitem__(self, key):
-        return self._dict[key]
-
-    def __setitem__(self, key, value):
-        """Set item both in dictionary and component."""
-        self.obs.params = "{} {}".format(key, repr(value))
-        self._dict[key] = value
-
-    def __delitem__(self, key):
-        self.obs.params = key
-        del self._dict[key]
-
-    def __iter__(self):
-        return iter(self._dict)
-
-    def __len__(self):
-        return len(self._dict)
-
-    def __contains__(self, key):
-        return key in self._dict
-
-    def __str__(self):
-        return str(self._dict)
-
-    def __repr__(self):
-        return repr(self._dict)
-
-
 def flatten(obj):
     """http://rightfootin.blogspot.co.za/2006/09/more-on-python-flatten.html"""
     try:
@@ -85,7 +36,7 @@ def flatten(obj):
 
 
 class CaptureSession(object):
-    """Capturing a single subarray product."""
+    """Capturing a single capture block."""
     def __init__(self, components=()):
         # Initial logging setup just ensures that we can display early errors
         configure_logging(logging.WARN)
@@ -95,7 +46,7 @@ class CaptureSession(object):
             setattr(self, comp._name, comp)
         self._clock = self._updater = None
         self.targets = False
-        self.obs_params = ObsParams(self.obs) if 'obs' in self else {}
+        self.obs_params = {}
         self.logger = logging.getLogger('kat.session')
 
     def __contains__(self, key):
@@ -175,8 +126,11 @@ class CaptureSession(object):
     def _start(self, args):
         # Do product_configure first to get telstate
         self._initial_state = self.product_configure(args)
-        # Now start components to send attributes to telstate (once-off)
-        self.components._start()
+        # Now start components to send attributes to telstate (once-off),
+        # but delay starting the obs component until capture_init
+        for comp in self.components:
+            if comp._name != 'obs':
+                comp._start()
         # After initial telstate updates it is OK to start periodic updates
         if self._updater:
             self._updater.start()
@@ -206,9 +160,9 @@ class CaptureSession(object):
         # Set up logging once log_level is known and clock is available
         self._configure_logging(args.log_level)
         self._start(args)
+        self.obs_params.update(vars(args))
         if self._initial_state < CaptureState.INITED:
             self.capture_init()
-        self.obs_params.update(vars(args))
         if self.targets:
             self.targets = self.collect_targets(args.targets)
         return self

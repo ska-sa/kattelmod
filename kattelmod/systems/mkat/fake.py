@@ -113,9 +113,9 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
 
 
 class Observation(TelstateUpdatingComponent):
-    def __init__(self):
+    def __init__(self, params={}):
         super(Observation, self).__init__()
         self._initialise_attributes(locals())
         self.label = ''
-        self.params = ''
         self.script_log = ''
+        self.activity = ''

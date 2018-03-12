@@ -33,6 +33,18 @@ class CaptureSession(BaseCaptureSession):
     def capture_init(self):
         if 'sdp' in self:
             self.sdp.capture_init()
+            if 'sdp_capture_block_id' in self._telstate:
+                capture_block_id = self._telstate['sdp_capture_block_id']
+            else:
+                self.logger.warning('No sdp_capture_block_id in telstate - '
+                                    'assuming simulated environment')
+                capture_block_id = str(self.time())
+            self.obs_params['capture_block_id'] = capture_block_id
+            cb_telstate = self._telstate.view(capture_block_id)
+            if 'obs' in self:
+                self.obs.params = self.obs_params
+                self.obs._telstate = cb_telstate
+                self.obs._start()
 
     def capture_start(self):
         if 'cbf' in self:
