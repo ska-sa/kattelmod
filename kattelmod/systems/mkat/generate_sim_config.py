@@ -22,7 +22,7 @@ names = ${ants}
 [sub]
 product = "kattelmod"
 dump_rate = ${dump_rate}
-pool_resources = ${ants},cbf_1,sdp_1
+pool_resources = "${ants},cbf_1,sdp_1"
 
 [sdp]
 master_controller = "${mc}:5001"
