@@ -28,6 +28,8 @@ class CaptureSession(BaseCaptureSession):
             prod_conf = self.sdp.product_configure
             initial_state = prod_conf(self.sub, sorted(ants))
         self._telstate = self.components._telstate = self._get_telstate(args)
+        if 'obs' in self:
+            self.obs._telstate = None
         return initial_state
 
     def capture_init(self):
