@@ -8,7 +8,7 @@ from kattelmod.session import CaptureState
 
 class Subarray(TelstateUpdatingComponent):
     def __init__(self, config_label='unknown', band='l', product='c856M4k',
-                 dump_rate=1.0, sub_nr=1):
+                 dump_rate=1.0, sub_nr=1, pool_resources=''):
         super(Subarray, self).__init__()
         self._initialise_attributes(locals())
 
@@ -113,9 +113,9 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
 
 
 class Observation(TelstateUpdatingComponent):
-    def __init__(self):
+    def __init__(self, params={}):
         super(Observation, self).__init__()
         self._initialise_attributes(locals())
         self.label = ''
-        self.params = ''
         self.script_log = ''
+        self.activity = 'idle'
