@@ -28,7 +28,8 @@ class CaptureSession(BaseCaptureSession):
             prod_conf = self.sdp.product_configure
             initial_state = prod_conf(self.sub, sorted(ants))
         self._telstate = self.components._telstate = self._get_telstate(args)
-        # The obs telstate is only configured on capture_init
+        # The obs telstate is only configured on capture_init since it needs
+        # a capture block ID view - disable it for now to avoid pollution
         if 'obs' in self:
             self.obs._telstate = None
         return initial_state
@@ -36,9 +37,9 @@ class CaptureSession(BaseCaptureSession):
     def capture_init(self):
         if 'sdp' in self:
             self.sdp.capture_init()
-            if 'sdp_capture_block_id' in self._telstate:
+            try:
                 capture_block_id = self._telstate['sdp_capture_block_id']
-            else:
+            except KeyError:
                 self.logger.warning('No sdp_capture_block_id in telstate - '
                                     'assuming simulated environment')
                 capture_block_id = str(self.time())
