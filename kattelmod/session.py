@@ -2,7 +2,7 @@ import logging
 import argparse
 
 from enum import IntEnum
-from katpoint import Timestamp
+from katpoint import Timestamp, Catalogue
 
 from kattelmod.updater import WarpClock, PeriodicUpdaterThread
 from kattelmod.logger import configure_logging
@@ -104,8 +104,34 @@ class CaptureSession(object):
             parser.add_argument('targets', metavar='target', nargs='+')
         return parser
 
-    def collect_targets(self, targets):
-        return list(targets)
+    def collect_targets(self, *args):
+        """Collect targets specified by description string or catalogue file."""
+        from_strings = from_catalogues = num_catalogues = 0
+        targets = Catalogue(antenna=self.observer)
+        for arg in args:
+            try:
+                # First assume the string is a catalogue file name
+                count_before_add = len(targets)
+                try:
+                    targets.add(open(arg))
+                except ValueError:
+                    self.logger.warning("Catalogue %r contains bad targets", arg)
+                from_catalogues += len(targets) - count_before_add
+                num_catalogues += 1
+            except IOError:
+                # If file failed to load, assume it is target description string
+                try:
+                    targets.add(arg)
+                    from_strings += 1
+                except ValueError as err:
+                    self.logger.warning("Invalid target %r, skipping it [%s]",
+                                        arg, err)
+        if len(targets) == 0:
+            raise ValueError("No known targets found in argument list")
+        self.logger.info("Found %d target(s): %d from %d catalogue(s) and "
+                         "%d as target string(s)", len(targets),
+                         from_catalogues, num_catalogues, from_strings)
+        return targets
 
     def _fake(self):
         """Construct an equivalent fake session."""
@@ -164,7 +190,7 @@ class CaptureSession(object):
         if self._initial_state < CaptureState.INITED:
             self.capture_init()
         if self.targets:
-            self.targets = self.collect_targets(args.targets)
+            self.targets = self.collect_targets(*args.targets)
         return self
 
     def disconnect(self):
