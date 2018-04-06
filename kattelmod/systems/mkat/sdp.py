@@ -65,7 +65,7 @@ class ScienceDataProcessor(KATCPComponent):
                     simulate['antennas'] = [receptor.description for receptor in receptors]
         # Insert the dump rate
         for output in config['outputs'].values():
-            if output['type'] == 'sdp.l0':
+            if output['type'] in ['sdp.l0', 'sdp.vis']:
                 output['output_int_time'] = 1.0 / sub.dump_rate
         msg = self._client.req.product_configure(subarray_product, json.dumps(config),
                                                  timeout=300)

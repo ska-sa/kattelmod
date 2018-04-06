@@ -64,7 +64,7 @@ def generate(argv):
     n_accs = int(round(0.5 * bandwidth / args.channels / 256)) * 256
     cbf_int_time = n_accs * args.channels / bandwidth
     config = {
-        "version": "1.1",
+        "version": "2.0",
         "inputs": {
             "i0_antenna_channelised_voltage": {
                 "type": "cbf.antenna_channelised_voltage",
@@ -97,18 +97,26 @@ def generate(argv):
         },
         "outputs": {
             "sdp_l0": {
-                "type": "sdp.l0",
+                "type": "sdp.vis",
                 "src_streams": ["i0_baseline_correlation_products"],
-                "continuum_factor": 1
+                "continuum_factor": 1,
+                "archive": True
             },
             "sdp_l0_continuum": {
-                "type": "sdp.l0",
+                "type": "sdp.vis",
                 "src_streams": ["i0_baseline_correlation_products"],
-                "continuum_factor": 16
+                "continuum_factor": 16,
+                "archive": False
             },
             "cal": {
                 "type": "sdp.cal",
                 "src_streams": ["sdp_l0"]
+            },
+            "sdp_l1_flags": {
+                "type": "sdp.flags",
+                "src_streams": ["sdp_l0"],
+                "calibration": ["cal"],
+                "archive": True
             }
         },
         "config": {}
