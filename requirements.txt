@@ -3,6 +3,7 @@ backports.ssl-match-hostname
 certifi
 cycler==0.10.0
 cython
+dask
 decorator
 enum34
 fakeredis
@@ -37,16 +38,17 @@ path.py==8.1.2
 pbr
 pexpect==4.0.1
 pickleshare==0.6
-pkginfo
 ply
 ptyprocess==0.5.1
 pyephem
 pygments
 pyparsing==2.1.0
-python-dateutil==2.4.2
+python-dateutil
+python-lzf
 pytz
 pyzmq==15.2.0
 qtconsole==4.2.0
+rdbtools
 redis
 scipy
 simplegeneric==0.8.1
@@ -54,6 +56,7 @@ singledispatch
 six
 spead==0.5.1
 terminado==0.6
+toolz
 tornado
 traceback2
 traitlets==4.1.0
