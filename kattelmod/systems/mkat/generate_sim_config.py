@@ -38,7 +38,7 @@ ANTENNA_ORDER = [62, 63, 0, 2, 4, 6, 8, 11, 13, 15, 17, 19, 22, 30, 39, 56,
 assert sorted(ANTENNA_ORDER) == list(range(64))
 MASTER_MAP = {
     'site': 'mc1.sdp.mkat.karoo.kat.ac.za',
-    'lab': 'sdp-ingest5.kat.ac.za',
+    'lab': 'lab1.sdp.kat.ac.za',
     'localhost': 'localhost'
 }
 
