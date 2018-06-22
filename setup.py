@@ -24,4 +24,5 @@ setup(name="kattelmod",
       test_suite="nose.collector",
       setup_requires=['katversion'],
       use_katversion=True,
+      tests_require=["nose"],
       install_requires=["numpy", "katcp", "katpoint", "enum34"])
