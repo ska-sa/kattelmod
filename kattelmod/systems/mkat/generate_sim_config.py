@@ -48,7 +48,7 @@ def generate(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--antennas', type=int, required=True)
     parser.add_argument('-r', '--dump-rate', type=float, default=0.25)
-    parser.add_argument('-c', '--channels', type=int, choices=[4096, 32768], default=4096)
+    parser.add_argument('-c', '--channels', type=int, choices=[1024, 4096, 32768], default=4096)
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
     parser.add_argument('--develop', action='store_true')
     parser.add_argument('--band', choices=['l'], default='l')
@@ -64,8 +64,12 @@ def generate(argv):
     # Round CBF integration time of 0.5s to nearest integer multiple
     n_accs = int(round(0.5 * bandwidth / args.channels / 256)) * 256
     cbf_int_time = n_accs * args.channels / bandwidth
+    # Continuum factor for a 1K continuum stream. When input is 1K, just make it
+    # a 512 channel stream (less effort than trying to turn off continuum output
+    # completely).
+    continuum_factor = max(2, args.channels // 1024)
     config = {
-        "version": "2.0",
+        "version": "2.2",
         "inputs": {
             "i0_antenna_channelised_voltage": {
                 "type": "cbf.antenna_channelised_voltage",
@@ -106,8 +110,8 @@ def generate(argv):
             "sdp_l0_continuum": {
                 "type": "sdp.vis",
                 "src_streams": ["i0_baseline_correlation_products"],
-                "continuum_factor": 16,
-                "archive": False
+                "continuum_factor": continuum_factor,
+                "archive": True
             },
             "cal": {
                 "type": "sdp.cal",
@@ -116,6 +120,12 @@ def generate(argv):
             "sdp_l1_flags": {
                 "type": "sdp.flags",
                 "src_streams": ["sdp_l0"],
+                "calibration": ["cal"],
+                "archive": True
+            },
+            "sdp_l1_flags_continuum": {
+                "type": "sdp.flags",
+                "src_streams": ["sdp_l0_continuum"],
                 "calibration": ["cal"],
                 "archive": True
             }
@@ -178,10 +188,7 @@ def generate(argv):
 if __name__ == '__main__':
     argv = sys.argv[1:]
     if argv == ['update']:
-        for i in [2, 16, 32, 60]:
-            with open('sim_{}ant.cfg'.format(i), 'w') as f:
-                f.write(generate(['--antennas', str(i)]))
-        with open('sim_32ant_32k.cfg', 'w') as f:
-            f.write(generate(['--antennas', '32', '--channels', '32768']))
+        with open('sim_64ant_32k.cfg', 'w') as f:
+            f.write(generate(['--antennas', '64', '--channels', '32768']))
     else:
         print(generate(argv))
