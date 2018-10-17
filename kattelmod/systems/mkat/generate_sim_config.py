@@ -188,10 +188,7 @@ def generate(argv):
 if __name__ == '__main__':
     argv = sys.argv[1:]
     if argv == ['update']:
-        for i in [2, 16, 32, 60]:
-            with open('sim_{}ant.cfg'.format(i), 'w') as f:
-                f.write(generate(['--antennas', str(i)]))
-        with open('sim_32ant_32k.cfg', 'w') as f:
-            f.write(generate(['--antennas', '32', '--channels', '32768']))
+        with open('sim_64ant_32k.cfg', 'w') as f:
+            f.write(generate(['--antennas', '64', '--channels', '32768']))
     else:
         print(generate(argv))
