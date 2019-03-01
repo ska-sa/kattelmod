@@ -57,7 +57,7 @@ def load_config(config_file):
         raise Error('Could not open config file %r' % (config_file,))
     components = dict(cfg.items('Telescope'))
     telescope = {}
-    for comp_name, comp_type in list(components.items()):
+    for comp_name, comp_type in components.items():
         telescope[comp_name] = {'class' : comp_type, 'attrs' : {}, 'sensors' : []}
         sections = [':'.join((comp_type, name, item)) for name in ['*', comp_name]
                                                       for item in ['attrs', 'sensors']]
@@ -83,7 +83,7 @@ class FakeTelescope(object):
         self._clock = WarpClock(start_time, dry_run)
         self._clients = []
         groups = {}
-        for comp_name, component in list(self._config.items()):
+        for comp_name, component in self._config.items():
             if component['class'] == 'Group':
                 groups[comp_name] = component['attrs']['members']
                 continue
@@ -96,7 +96,7 @@ class FakeTelescope(object):
                 sensor_name = sensor_args[0]
                 sensor = getattr(client.sensor, sensor_name)
                 setattr(self.sensors, comp_name + '_' + sensor_name, sensor)
-        for group_name, client_names in list(groups.items()):
+        for group_name, client_names in groups.items():
             group = ClientGroup(group_name, [getattr(self, client_name, None)
                                              for client_name in client_names],
                                 self._clock)
