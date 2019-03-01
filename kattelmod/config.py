@@ -1,5 +1,5 @@
 import os.path
-from ConfigParser import SafeConfigParser, Error
+from configparser import SafeConfigParser, Error
 from importlib import import_module
 
 import kattelmod.systems

@@ -6,7 +6,7 @@ import katpoint
 user_logger = logging.getLogger('user')
 
 # List of available projections and the default one to use
-PROJECTIONS = katpoint.plane_to_sphere.keys()
+PROJECTIONS = list(katpoint.plane_to_sphere.keys())
 DEFAULT_PROJ = 'ARC'
 # Move default projection to front of list
 PROJECTIONS.remove(DEFAULT_PROJ)
@@ -15,14 +15,14 @@ PROJECTIONS.insert(0, DEFAULT_PROJ)
 
 def report_compact_traceback(tb):
     """Produce a compact traceback report."""
-    print '--------------------------------------------------------'
-    print 'Session interrupted while doing (most recent call last):'
-    print '--------------------------------------------------------'
+    print('--------------------------------------------------------')
+    print('Session interrupted while doing (most recent call last):')
+    print('--------------------------------------------------------')
     while tb:
         f = tb.tb_frame
-        print '%s %s(), line %d' % (f.f_code.co_filename, f.f_code.co_name, f.f_lineno)
+        print('%s %s(), line %d' % (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
         tb = tb.tb_next
-    print '--------------------------------------------------------'
+    print('--------------------------------------------------------')
 
 
 class ScriptLogHandler(logging.Handler):

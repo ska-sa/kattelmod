@@ -13,7 +13,7 @@ class IgnoreUnknownMethods(object):
         return IgnoreUnknownMethods()
     def __call__(self, *args, **kwargs):
         pass
-    def __nonzero__(self):
+    def __bool__(self):
         return False
 
 
@@ -62,7 +62,7 @@ class FakeClient(object):
             attr = getattr(self.model, attr_name)
             if callable(attr) and attr_name.startswith('req_'):
                 # Unbind attr function from model and bind it to req, removing 'req_' prefix
-                setattr(self.req, attr_name[4:], types.MethodType(attr.im_func, self.model))
+                setattr(self.req, attr_name[4:], types.MethodType(attr.__func__, self.model))
         setattr(self.req, 'sensor_sampling', self._req_sensor_sampling)
 
     def _register_aggregate_sensors(self):
@@ -70,7 +70,7 @@ class FakeClient(object):
             attr = getattr(self.model, attr_name)
             if callable(attr) and attr_name.startswith('_aggregate_'):
                 agg_parent = attr_name[11:]
-                agg_func = attr.im_func.func_code
+                agg_func = attr.__func__.__code__
                 agg_children = agg_func.co_varnames[1:agg_func.co_argcount]
                 for child in agg_children:
                     self._aggregates[child] = self._aggregates.get(child, []) + \
@@ -78,7 +78,7 @@ class FakeClient(object):
 
     def update(self, timestamp):
         self.model.update(timestamp)
-        for sensor in vars(self.sensor).values():
+        for sensor in list(vars(self.sensor).values()):
             sensor.update(timestamp)
 
     def is_connected(self):
@@ -137,8 +137,8 @@ class ClientGroup(object):
         # Register requests
         for client in self.clients:
             if client:
-                existing_requests = vars(self.req).keys()
-                for name, request in vars(client.req).iteritems():
+                existing_requests = list(vars(self.req).keys())
+                for name, request in vars(client.req).items():
                     if name not in existing_requests:
                         setattr(self.req, name,
                                 GroupRequest(self, name, request.__doc__))

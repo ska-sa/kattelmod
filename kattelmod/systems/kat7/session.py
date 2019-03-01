@@ -30,7 +30,7 @@ from katmisc.utils.utils import dynamic_doc
 
 
 # Obtain list of spherical projections and the default projection from antenna proxy
-projections, default_proj = Offset.PROJECTIONS.keys(), Offset.DEFAULT_PROJECTION
+projections, default_proj = list(Offset.PROJECTIONS.keys()), Offset.DEFAULT_PROJECTION
 # Move default projection to front of list
 projections.remove(default_proj)
 projections.insert(0, default_proj)
@@ -38,14 +38,14 @@ projections.insert(0, default_proj)
 
 def report_compact_traceback(tb):
     """Produce a compact traceback report."""
-    print '--------------------------------------------------------'
-    print 'Session interrupted while doing (most recent call last):'
-    print '--------------------------------------------------------'
+    print('--------------------------------------------------------')
+    print('Session interrupted while doing (most recent call last):')
+    print('--------------------------------------------------------')
     while tb:
         f = tb.tb_frame
-        print '%s %s(), line %d' % (f.f_code.co_filename, f.f_code.co_name, f.f_lineno)
+        print('%s %s(), line %d' % (f.f_code.co_filename, f.f_code.co_name, f.f_lineno))
         tb = tb.tb_next
-    print '--------------------------------------------------------'
+    print('--------------------------------------------------------')
 
 
 class ScriptLogHandler(logging.Handler):
@@ -208,7 +208,7 @@ class CaptureSession(CaptureSessionBase):
             dbe.req.k7w_set_script_param('script-name', sys.argv[0])
             dbe.req.k7w_set_script_param('script-arguments', ' '.join(sys.argv[1:]))
             dbe.req.k7w_set_script_param('script-status', 'busy')
-        except Exception, e:
+        except Exception as e:
             msg = 'CaptureSession failed to initialise (%s)' % (e,)
             user_logger.error(msg)
             activity_logger.error(msg)
@@ -1017,8 +1017,8 @@ class CaptureSession(CaptureSessionBase):
         scanning_coord = (scan_extent / 2.0) * (-1) ** scan_levels
         stepping_coord = scan_spacing * scan_levels
         # Flip sign of elevation offsets to ensure that the first scan always starts at the top left of target
-        scan_starts = zip(scanning_coord, -stepping_coord) if scan_in_azimuth else zip(stepping_coord, -scanning_coord)
-        scan_ends = zip(-scanning_coord, -stepping_coord) if scan_in_azimuth else zip(stepping_coord, scanning_coord)
+        scan_starts = list(zip(scanning_coord, -stepping_coord)) if scan_in_azimuth else list(zip(stepping_coord, -scanning_coord))
+        scan_ends = list(zip(-scanning_coord, -stepping_coord)) if scan_in_azimuth else list(zip(stepping_coord, scanning_coord))
 
         # Perform multiple scans across the target
         for scan_index, (start, end) in enumerate(zip(scan_starts, scan_ends)):
@@ -1413,8 +1413,8 @@ class TimeSession(CaptureSessionBase):
         scanning_coord = (scan_extent / 2.0) * (-1) ** scan_levels
         stepping_coord = scan_spacing * scan_levels
         # Flip sign of elevation offsets to ensure that the first scan always starts at the top left of target
-        scan_starts = zip(scanning_coord, -stepping_coord) if scan_in_azimuth else zip(stepping_coord, -scanning_coord)
-        scan_ends = zip(-scanning_coord, -stepping_coord) if scan_in_azimuth else zip(stepping_coord, scanning_coord)
+        scan_starts = list(zip(scanning_coord, -stepping_coord)) if scan_in_azimuth else list(zip(stepping_coord, -scanning_coord))
+        scan_ends = list(zip(-scanning_coord, -stepping_coord)) if scan_in_azimuth else list(zip(stepping_coord, scanning_coord))
         self.fire_noise_diode(announce=False, **self.nd_params)
         # Perform multiple scans across the target
         for scan_index, (start, end) in enumerate(zip(scan_starts, scan_ends)):

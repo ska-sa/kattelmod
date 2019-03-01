@@ -23,7 +23,7 @@ def make_record_with_custom_clock(self, *args):
     record = self._makeRecord(*args)
     # Patch all timestamp-related fields
     record.created = create_time
-    record.msecs = (create_time - long(create_time)) * 1000
+    record.msecs = (create_time - int(create_time)) * 1000
     record.relativeCreated = (record.created - logging._startTime) * 1000
     return record
 

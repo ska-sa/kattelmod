@@ -53,7 +53,7 @@ class ScienceDataProcessor(KATCPComponent):
         if not isinstance(config, dict):
             config = json.loads(config)
         # Insert the antenna list and antenna positions
-        for input_ in config['inputs'].values():
+        for input_ in list(config['inputs'].values()):
             if input_['type'] == 'cbf.antenna_channelised_voltage':
                 input_['antennas'] = [receptor.name for receptor in receptors]
             if input_['type'] in ['cbf.baseline_correlation_products',
@@ -64,7 +64,7 @@ class ScienceDataProcessor(KATCPComponent):
                 if isinstance(simulate, dict):
                     simulate['antennas'] = [receptor.description for receptor in receptors]
         # Insert the dump rate
-        for output in config['outputs'].values():
+        for output in list(config['outputs'].values()):
             if output['type'] in ['sdp.l0', 'sdp.vis'] and 'output_int_time' not in output:
                 output['output_int_time'] = 1.0 / sub.dump_rate
         msg = self._client.req.product_configure(subarray_product, json.dumps(config),

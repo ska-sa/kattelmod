@@ -19,7 +19,7 @@ class TestingUpdate(unittest.TestCase):
     def _update(self, timestamp):
         self.counter += 1
         time.sleep(0.01)
-        print 'Updated at', timestamp, 'counter =', self.counter
+        print('Updated at', timestamp, 'counter =', self.counter)
 
     def test_slave_sleep(self):
         """Expect to do 1.0 second warp and 1.0 second normal sleep."""
@@ -58,7 +58,7 @@ class TestingUpdate(unittest.TestCase):
         with PeriodicUpdaterThread([self], self.clock, period=0.1):
             satisfied = self.clock.slave_sleep(0.95, condition=lambda: self.counter == 5)
             self.assertTrue(satisfied, 'Sleep condition not satisfied')
-            self.assertEquals(self.counter, 5, 'Sleep condition not satisfied')
+            self.assertEqual(self.counter, 5, 'Sleep condition not satisfied')
             satisfied = self.clock.slave_sleep(0.95, condition=lambda: self.counter == 1000)
             self.assertFalse(satisfied, 'Sleep timeout not satisfied')
-            self.assertEquals(self.counter, 15, 'Sleep timeout not satisfied')
+            self.assertEqual(self.counter, 15, 'Sleep timeout not satisfied')

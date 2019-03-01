@@ -169,11 +169,11 @@ def verify_and_connect(opts):
                                  config_label=config_label)
         else:
             # Temporarily give the user override options
-            print (colors.Red,
+            print((colors.Red,
                 "\nBuilding without a schedule block id code is deprecated."
                 "\nTHERE MAY BE CONTROL CLASHES!!!!"
-                "\nBut for one last time we will allow it ...", colors.Normal)
-            choice = raw_input(colors.Red
+                "\nBut for one last time we will allow it ...", colors.Normal))
+            choice = input(colors.Red
                     + "Do you want to cancel this build? y/n ...." + colors.Normal)
             if choice not in ['n', 'N']:
                 raise ValueError(
@@ -184,7 +184,7 @@ def verify_and_connect(opts):
         user_logger.info("Using KAT connection with configuration=%s "
                          "sb_id_code=%s\nControlled objects: %s" %
                          (kat.system, opts.sb_id_code, kat.controlled_objects))
-    except ValueError, err:
+    except ValueError as err:
         # Don't default to local build.
         kat = None
         user_logger.error(
@@ -282,7 +282,7 @@ def collect_targets(kat, args):
                 try:
                     targets.add(arg)
                     from_strings += 1
-                except ValueError, err:
+                except ValueError as err:
                     user_logger.warning("Invalid target %r, skipping it [%s]" % (arg, err))
     if len(targets) == 0:
         raise ValueError("No known targets found in argument list")

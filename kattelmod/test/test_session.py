@@ -17,6 +17,6 @@ class TestBasicTrack(unittest.TestCase):
                '--start-time=2016-02-25 10:14:00']
         process = Popen(cmd, stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
-        print stdout
-        print stderr
+        print(stdout)
+        print(stderr)
         self.assertEqual(process.returncode, 0)

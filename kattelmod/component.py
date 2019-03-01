@@ -67,7 +67,7 @@ class Component(object):
         if 'self' in params:
             del params['self']
         self._immutables = sorted(params.keys())
-        for name, value in params.iteritems():
+        for name, value in params.items():
             setattr(self, name, value)
 
     @classmethod
@@ -234,9 +234,9 @@ class MultiComponent(Component):
         # Register methods
         methods = {}
         for comp in self._comps:
-            for name, method in api_methods(comp).iteritems():
+            for name, method in api_methods(comp).items():
                 methods[name] = methods.get(name, []) + [method]
-        for name, meths in methods.iteritems():
+        for name, meths in methods.items():
             # Only create a top-level method if all components below have it
             if len(meths) == len(self._comps) and name not in self._not_shared:
                 multimethod = MultiMethod(self._comps, name, meths[0].__doc__)
@@ -325,8 +325,8 @@ def construct_component(comp_type, comp_name=None, params=None):
     params = params if params else {}
     # Cull any unknown parameters before constructing object
     # XXX Figure out a better way to construct from another similar component
-    expected_args = NewComponent.__init__.im_func.func_code.co_varnames[1:]
-    params = {k: v for (k, v) in params.iteritems() if k in expected_args}
+    expected_args = NewComponent.__init__.__func__.__code__.co_varnames[1:]
+    params = {k: v for (k, v) in params.items() if k in expected_args}
     try:
         comp = NewComponent(**params)
     except TypeError as e:

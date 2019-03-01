@@ -97,7 +97,7 @@ class Sensor(object):
         return self.spead_item
 
     def get_dataset(self):
-        dset = np.rec.fromarrays([self.values.keys(), self.values.values(), self.statii.values()],names='timestamp, value, status')
+        dset = np.rec.fromarrays([list(self.values.keys()), list(self.values.values()), list(self.statii.values())],names='timestamp, value, status')
         dset.sort(axis=0)
         return dset
 
@@ -117,7 +117,7 @@ class TelescopeComponent(object):
     def set_attribute(self, key, value):
         """Directly set attribute on component. Used specifically
         in cases in which the attributes are not know at build time."""
-        if self.attributes.has_key(key) and self.attributes[key].value is not None: raise ValueError("This attribute already exists and is set to {0}. Not overwriting.".format(self.attributes[key].value))
+        if key in self.attributes and self.attributes[key].value is not None: raise ValueError("This attribute already exists and is set to {0}. Not overwriting.".format(self.attributes[key].value))
         else:
             self.attributes[key] = Attribute(key, critical=False, init_val=value)
              # by definition it is not critical
@@ -132,12 +132,12 @@ class TelescopeComponent(object):
     def is_valid(self, timespec=None, check_sensors=True, check_attributes=True):
         retval = True
         if check_sensors:
-            for s in [v for (k,v) in self.sensors.iteritems() if k in self._critical_sensors]:
+            for s in [v for (k,v) in self.sensors.items() if k in self._critical_sensors]:
                 if not s.is_valid(timespec=timespec):
                     logger.info("Sensor {0} is invalid ({1})".format("{0}/{1}".format(self.proxy_path,s.name),"no sensor value in timespec" if timespec is not None else "no values"))
                     retval = False
         if check_attributes:
-            for a in [v for (k,v) in self.attributes.iteritems() if k in self._critical_attributes]:
+            for a in [v for (k,v) in self.attributes.items() if k in self._critical_attributes]:
                 if not a.is_valid(): logger.info("Attribute {0} has not been set".format(a.name))
                 retval = retval and a.is_valid()
         return retval
@@ -154,7 +154,7 @@ class TelescopeModel(object):
 
     def add_components(self, components):
         for component in components:
-            if self.components.has_key(component):
+            if component in self.components:
                 logger.warning("Component name {0} is not unique".format(component_name))
                 continue
             self.components[component.name] = component
@@ -162,15 +162,15 @@ class TelescopeModel(object):
 
     def is_valid(self, timespec=None):
         retval = True
-        for c in self.components.itervalues():
+        for c in self.components.values():
             if not c.is_valid(timespec=timespec): retval = False
         return retval
 
     def build_index(self):
-        for c in self.components.itervalues():
-            for k,v in c.sensors.iteritems():
+        for c in self.components.values():
+            for k,v in c.sensors.items():
                 self.index["{0}_{1}".format(c.proxy_path,k)] = v
-            for k,v in c.attributes.iteritems():
+            for k,v in c.attributes.items():
                 self.index["{0}_{1}".format(c.proxy_path,k)] = v
 
     def init_from_h5(self, filename):
@@ -186,15 +186,15 @@ class TelescopeModel(object):
             logger.error("Attempt to load version {0} into a version {1} model.".format(version, hdf5_version))
             return
         cls_count = sensor_count = attr_count = 0
-        for h5_component in f['/TelescopeModel'].itervalues():
+        for h5_component in f['/TelescopeModel'].values():
             cls = globals()[h5_component.attrs['class']]
             c = cls(name=h5_component.name)
             self.add_components([c])
             cls_count += 1
-            for k,v in h5_component.attrs.iteritems():
+            for k,v in h5_component.attrs.items():
                 c.set_attribute(k,v)
                 attr_count += 1
-            for h5_dataset in h5_component.itervalues():
+            for h5_dataset in h5_component.values():
                 for row in h5_dataset.value:
                     c.sensors[h5_dataset.name].set_value("{0} {1} {2}".format(row[0],row[1],row[2]))
                     sensor_count += 1
@@ -218,7 +218,7 @@ class TelescopeModel(object):
          # exception handling and logging are used to print
          # more informative messages.
 
-        for c in self.components.values():
+        for c in list(self.components.values()):
             comp_base = "{0}/{1}/{2}/".format(base_path,c._h5_path,c.name)
             try:
                 c_group = f.create_group(comp_base)
@@ -226,7 +226,7 @@ class TelescopeModel(object):
             except ValueError:
                 c_group = f[comp_base]
                 logger.warning("Failed to create group {0} (likely to already exist)".format(comp_base))
-            for (k,v) in c.attributes.iteritems():
+            for (k,v) in c.attributes.items():
                 if v.value is not None: c_group.attrs[k] = v.value
             for sensor in sorted(c.sensors.keys()):
                 s = c.sensors[sensor]
@@ -248,7 +248,7 @@ class TelescopeModel(object):
         output_file = filename[:filename.find(".writing.h5")] + ".h5"
         try:
             os.rename(filename, output_file)
-        except Exception, e:
+        except Exception as e:
             logger.error("Failed to rename output file {0} to {1} ({2})".format(filename, output_file, e))
             return ("fail","Failed to rename output file from {0} to {1}.".format(filename, output_file))
         return "File renamed to {0}".format(output_file)
@@ -256,7 +256,7 @@ class TelescopeModel(object):
     def _add_spead_item(self, ig, item):
         if item.id is None:
             item.id = 2**12 + len(ig._items)
-            while ig._items.has_key(item.id): item.id += 1
+            while item.id in ig._items: item.id += 1
         ig._items[item.id] = item
         ig._new_names.append(item.name)
         ig._update_keys()
@@ -274,16 +274,16 @@ class TelescopeModel(object):
         all_item_updates = []
          # the array of Attributes and Sensors to actually send
 
-        for c in self.components.values():
-            for a in c.attributes.itervalues():
+        for c in list(self.components.values()):
+            for a in c.attributes.values():
                 self._add_spead_item(ig, a.get_spead_item())
                 logger.debug("Attribute {0} has update ts {1}".format(a.name,a.update_ts))
                 if a.update_ts is not None:
                     logger.debug("Adding attribute {0} to spead update".format(a.name))
                     all_item_updates.append(SPEADItemUpdate(a.name,a.update_ts,a.value))
-            for s in c.sensors.itervalues():
+            for s in c.sensors.values():
                 self._add_spead_item(ig, s.get_spead_item())
-                for (sensor_time, sensor_value) in s.values.iteritems():
+                for (sensor_time, sensor_value) in s.values.items():
                     sensor_state = s.statii[sensor_time]
                     update_time = s.update_tss[sensor_time]
                     logger.debug("Adding sensor value for sensor {0} to spead update".format(s.name))
@@ -307,7 +307,7 @@ class TelescopeModel(object):
         """Traverses a SPEAD itemgroup looking for any changed items that match items expected in the model
         index and then updating these as appropriate. Attributes are non-volatile and will not 
         be overwritten, whilst conforming sensor are inserted into Sensor objects."""
-        for item_name in ig.keys():
+        for item_name in list(ig.keys()):
             # ig has no iteritems or equivalent
             item = ig.get_item(item_name)
             if item._changed:
