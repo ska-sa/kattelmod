@@ -2,10 +2,9 @@ import time
 import logging
 from importlib import import_module
 
+import aiokatcp
+import async_timeout
 from katpoint import Antenna, Target
-from katcp.resource_client import (IOLoopThreadWrapper, KATCPClientResource,
-                                   ThreadSafeKATCPClientResourceWrapper)
-from katcp.ioloop_manager import IOLoopManager
 from concurrent.futures import TimeoutError
 
 from kattelmod.telstate import endpoint_parser
@@ -75,10 +74,10 @@ class Component(object):
         for name in names.split(' '):
             setattr(cls, name.strip(), func if func else lambda self: None)
 
-    def _start(self):
+    async def _start(self):
         self._started = True
 
-    def _stop(self):
+    async def _stop(self):
         self._started = False
 
     def _fake(self):
@@ -129,10 +128,10 @@ class TelstateUpdatingComponent(Component):
         if timestamp - self._last_rate_limited_send > SENSOR_MIN_PERIOD:
             self._last_rate_limited_send = timestamp
 
-    def _start(self):
+    async def _start(self):
         if self._started:
             return
-        super(TelstateUpdatingComponent, self)._start()
+        await super(TelstateUpdatingComponent, self)._start()
         # Reassign values to object attributes to trigger output to telstate
         for name in self._sensors:
             setattr(self, name, getattr(self, name))
@@ -147,42 +146,24 @@ class KATCPComponent(Component):
         if self._endpoint.port < 0:
             raise ValueError("Please specify port for KATCP client '{}'"
                              .format(endpoint))
-        # Each KATCP component will have its own IOLoop, which is not great,
-        # but this is tolerable since there is currently only one instance
-        # of this component (sdp.ScienceDataProcessor)
-        self._ioloop_manager = IOLoopManager()
-        # Ensure that the background thread will actually die on script crashes
-        self._ioloop_manager.setDaemon(True)
 
-    def _start(self):
+    async def _start(self):
         if self._started:
             return
         super(KATCPComponent, self)._start()
-        ioloop = self._ioloop_manager.get_ioloop()
-        self._ioloop_manager.start()
-        resource_spec = dict(name=self._name, controlled=True,
-                             address=(self._endpoint.host, self._endpoint.port))
-        async_client = KATCPClientResource(resource_spec)
-        async_client.set_ioloop(ioloop)
-        ioloop.add_callback(async_client.start)
-        wrapped_ioloop = IOLoopThreadWrapper(ioloop)
-        wrapped_ioloop.default_timeout = 1
-        self._client = ThreadSafeKATCPClientResourceWrapper(async_client,
-                                                            wrapped_ioloop)
-        try:
-            self._client.until_synced()
-        except TimeoutError:
-            raise TimeoutError("Timed out trying to connect '{}' to client '{}'"
-                               .format(self._name, self._endpoint))
+        with async_timeout.timeout(5):
+            self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError("Timed out trying to connect '{}' to client '{}'"
+                                       .format(self._name, self._endpoint)) from None
 
-    def _stop(self):
+    async def _stop(self):
         if not self._started:
             return
         if self._client:
-            self._client.stop()
-        self._ioloop_manager.stop()
-        self._ioloop_manager.join()
-        super(KATCPComponent, self)._stop()
+            self._client.close()
+            await self._client.wait_closed()
+        await super(KATCPComponent, self)._stop()
 
 
 class MultiMethod(object):

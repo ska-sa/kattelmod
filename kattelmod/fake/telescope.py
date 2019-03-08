@@ -124,9 +124,9 @@ class FakeTelescope(object):
         """Current time in UTC seconds since Unix epoch."""
         return self._clock.time()
 
-    def sleep(self, seconds):
+    async def sleep(self, seconds):
         """Sleep for the requested duration in seconds."""
-        self._clock.slave_sleep(seconds)
+        await self._clock.slave_sleep(seconds)
 
     @property
     def dry_run(self):

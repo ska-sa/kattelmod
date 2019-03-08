@@ -1,13 +1,8 @@
+aiokatcp
+async-timeout
 backports-abc             # via tornado
 certifi                   # via tornado
-enum34
-future                    # via katcp, katpoint
-futures                   # via katcp
-katcp
 numpy
-ply                       # via katcp
 pyephem                   # via katpoint
-singledispatch            # via tornado
 six                       # via singledispatch
-tornado==4.5.3            # via katcp
 git+ssh://git@github.com/ska-sa/katpoint#egg=katpoint

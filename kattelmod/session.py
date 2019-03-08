@@ -76,9 +76,9 @@ class CaptureSession(object):
         """Current time in UTC seconds since Unix epoch."""
         return self._clock.time()
 
-    def sleep(self, seconds, condition=None):
+    async def sleep(self, seconds, condition=None):
         """Sleep for the requested duration in seconds."""
-        self._clock.sleep(seconds, condition)
+        await self._clock.sleep(seconds, condition)
 
     @property
     def dry_run(self):
@@ -149,19 +149,19 @@ class CaptureSession(object):
                 self.obs.script_log = msg
         configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
 
-    def _start(self, args):
+    async def _start(self, args):
         # Do product_configure first to get telstate
-        self._initial_state = self.product_configure(args)
+        self._initial_state = await self.product_configure(args)
         # Now start components to send attributes to telstate (once-off),
         # but delay starting the obs component until capture_init
         for comp in self.components:
             if comp._name != 'obs':
-                comp._start()
+                await comp._start()
         # After initial telstate updates it is OK to start periodic updates
         if self._updater:
             self._updater.start()
 
-    def _stop(self):
+    async def _stop(self):
         # Stop updates first as telstate will disappear in product_deconfigure
         if self._updater:
             self._updater.stop()
@@ -169,11 +169,11 @@ class CaptureSession(object):
         # Now stop script log handler for same reason
         self._configure_logging(script_log=False)
         if self._initial_state < CaptureState.CONFIGURED:
-            self.product_deconfigure()
+            await self.product_deconfigure()
         # Stop components (including SDP) after all commands are done
-        self.components._stop()
+        await self.components._stop()
 
-    def connect(self, args=None):
+    async def connect(self, args=None):
         # Get parameters from command line by default for a quick session init
         if args is None:
             args = self.argparser().parse_args()
@@ -185,19 +185,19 @@ class CaptureSession(object):
             if updatable_comps else None
         # Set up logging once log_level is known and clock is available
         self._configure_logging(args.log_level)
-        self._start(args)
+        await self._start(args)
         self.obs_params.update(vars(args))
         if self._initial_state < CaptureState.INITED:
-            self.capture_init()
+            await self.capture_init()
         if self.targets:
             self.targets = self.collect_targets(*args.targets)
         return self
 
-    def disconnect(self):
+    async def disconnect(self):
         if self._initial_state < CaptureState.INITED:
-            self.capture_done()
+            await self.capture_done()
         if not self.obs_params['dont_stop']:
-            self._stop()
+            await self._stop()
 
     def new_compound_scan(self):
         yield self
@@ -225,7 +225,7 @@ class CaptureSession(object):
         return self.cbf.observer if 'cbf' in self else \
             self.ants[0].observer if 'ants' in self else None
 
-    def track(self, target, duration, announce=True):
+    async def track(self, target, duration, announce=True):
         self.target = target
         if announce:
             self.logger.info("Initiating {:g}-second track on target '{}'"
@@ -235,12 +235,12 @@ class CaptureSession(object):
             self.logger.info('slewing to target')
             # Wait until we are on target
             cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])  # noqa: E731
-            self.sleep(200, cond)
+            await self.sleep(200, cond)
             self.logger.info('target reached')
         # Stay on target for desired time
         self.obs.activity = 'track'
         self.logger.info('tracking target')
-        self.sleep(duration)
+        await self.sleep(duration)
         self.logger.info('target tracked for {:g} seconds'.format(duration))
         return True
 
