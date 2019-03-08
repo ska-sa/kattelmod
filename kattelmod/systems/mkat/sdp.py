@@ -2,6 +2,9 @@
 
 import json
 
+import aiokatcp
+import async_timeout
+
 from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
                                  TargetObserverMixin)
 from kattelmod.session import CaptureState
@@ -36,19 +39,21 @@ class ScienceDataProcessor(KATCPComponent):
         if post_configure and not self.subarray_product:
             raise ConfigurationError('SDP data product not configured')
 
-    def get_capture_state(self, subarray_product):
+    async def get_capture_state(self, subarray_product):
         self._validate(post_configure=False)
-        msg = self._client.req.capture_status(subarray_product)
-        lookup = {'idle': CaptureState.CONFIGURED,
-                  'init_wait': CaptureState.INITED,
-                  'capturing': CaptureState.STARTED}
-        return lookup.get(msg.reply.arguments[1], CaptureState.UNKNOWN) \
-            if msg.succeeded else CaptureState.UNCONFIGURED
+        try:
+            msg, _ = await self._client.request('capture-status', subarray_product)
+            lookup = {'idle': CaptureState.CONFIGURED,
+                      'init_wait': CaptureState.INITED,
+                      'capturing': CaptureState.STARTED}
+            return lookup.get(msg.arguments[1], CaptureState.UNKNOWN)
+        except aiokatcp.FailReply:
+            return CaptureState.UNCONFIGURED
 
     async def product_configure(self, sub, receptors):
         subarray_product = 'array_{}_{}'.format(sub.sub_nr, sub.product)
         self._validate(post_configure=False)
-        initial_state = self.get_capture_state(subarray_product)
+        initial_state = await self.get_capture_state(subarray_product)
         config = self.config
         if not isinstance(config, dict):
             config = json.loads(config)
@@ -67,29 +72,35 @@ class ScienceDataProcessor(KATCPComponent):
         for output in list(config['outputs'].values()):
             if output['type'] in ['sdp.l0', 'sdp.vis'] and 'output_int_time' not in output:
                 output['output_int_time'] = 1.0 / sub.dump_rate
-        msg = self._client.req.product_configure(subarray_product, json.dumps(config),
-                                                 timeout=300)
-        if not msg.succeeded:
-            raise ConfigurationError("Failed to configure product: " +
-                                     msg.reply.arguments[1])
+        try:
+            with async_timeout.timeout(300):
+                msg, _ = await self._client.request(
+                    'product-configure', subarray_product, json.dumps(config))
+        except aiokatcp.FailReply as exc:
+            raise ConfigurationError("Failed to configure product: " + str(exc)) from None
         self.subarray_product = subarray_product
         return initial_state
 
-    def product_deconfigure(self):
+    async def product_deconfigure(self):
         self._validate()
-        prod_conf = self._client.req.product_deconfigure
-        prod_conf(self.subarray_product, timeout=300)
+        with async_timeout.timeout(300):
+            await self._client.request('product-deconfigure', self.subarray_product)
 
-    def get_telstate(self):
+    async def get_telstate(self):
         self._validate()
-        msg = self._client.req.telstate_endpoint(self.subarray_product)
-        # XXX log connection problems
-        return msg.reply.arguments[1] if msg.succeeded else ''
+        try:
+            msg, _ = await self._client.request('telstate-endpoint', self.subarray_product)
+            # XXX log connection problems
+            return msg.arguments[1]
+        except aiokatcp.FailReply:
+            return ''
 
-    def capture_init(self):
+    async def capture_init(self):
         self._validate()
-        self._client.req.capture_init(self.subarray_product, timeout=10)
+        with async_timeout.timeout(10):
+            await self._client.request('capture-init', self.subarray_product)
 
-    def capture_done(self):
+    async def capture_done(self):
         self._validate()
-        self._client.req.capture_done(self.subarray_product, timeout=300)
+        with async_timeout.timeout(300):
+            await self._client.request('capture_done', self.subarray_product)

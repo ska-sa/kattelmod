@@ -150,7 +150,7 @@ class KATCPComponent(Component):
     async def _start(self):
         if self._started:
             return
-        super(KATCPComponent, self)._start()
+        await super(KATCPComponent, self)._start()
         try:
             with async_timeout.timeout(5):
                 self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)

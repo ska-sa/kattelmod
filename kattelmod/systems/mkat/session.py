@@ -24,7 +24,7 @@ class CaptureSession(BaseCaptureSession):
         initial_state = CaptureState.UNKNOWN
         if ('sub', 'sdp', 'ants') in self:
             ants = [comp.observer for comp in self.ants]
-            self.sdp._start()
+            await self.sdp._start()
             prod_conf = self.sdp.product_configure
             initial_state = await prod_conf(self.sub, sorted(ants))
         self._telstate = self.components._telstate = self._get_telstate(args)
