@@ -105,10 +105,10 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self._add_dummy_methods('product_deconfigure capture_init capture_done')
 
-    def product_configure(self, product, receptors):
+    async def product_configure(self, product, receptors):
         return CaptureState.STARTED
 
-    def get_telstate(self):
+    async def get_telstate(self):
         return ''
 
 

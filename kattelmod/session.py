@@ -31,8 +31,7 @@ def flatten(obj):
         yield obj
     else:
         for e in it:
-            for f in flatten(e):
-                yield f
+            yield from flatten(e)
 
 
 class CaptureSession(object):
@@ -58,17 +57,17 @@ class CaptureSession(object):
         else:
             return hasattr(self, key) and getattr(self, key) in self.components
 
-    def __enter__(self):
+    async def __aenter__(self):
         """Enter context."""
         if self._initial_state < CaptureState.STARTED:
-            self.capture_start()
+            await self.capture_start()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type, exc_value, traceback):
         """Exit context."""
         if self._initial_state < CaptureState.STARTED:
-            self.capture_stop()
-        self.disconnect()
+            await self.capture_stop()
+        await self.disconnect()
         # Don't suppress exceptions
         return False
 

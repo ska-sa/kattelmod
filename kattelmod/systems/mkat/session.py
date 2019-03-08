@@ -10,11 +10,11 @@ class CaptureSession(BaseCaptureSession):
         parser.add_argument('--telstate')
         return parser
 
-    def _get_telstate(self, args):
+    async def _get_telstate(self, args):
         if getattr(args, 'telstate', None):
             endpoint = args.telstate
         elif 'sdp' in self:
-            endpoint = self.sdp.get_telstate()
+            endpoint = await self.sdp.get_telstate()
         else:
             endpoint = ''
         return None if not endpoint else TelescopeState(endpoint) \
@@ -34,9 +34,9 @@ class CaptureSession(BaseCaptureSession):
             self.obs._telstate = None
         return initial_state
 
-    def capture_init(self):
+    async def capture_init(self):
         if 'sdp' in self:
-            self.sdp.capture_init()
+            await self.sdp.capture_init()
             try:
                 capture_block_id = self._telstate['sdp_capture_block_id']
             except KeyError:
@@ -50,18 +50,18 @@ class CaptureSession(BaseCaptureSession):
                 self.obs._telstate = cb_telstate
                 self.obs._start()
 
-    def capture_start(self):
+    async def capture_start(self):
         if 'cbf' in self:
-            self.cbf.capture_start()
+            await self.cbf.capture_start()
 
-    def capture_stop(self):
+    async def capture_stop(self):
         if 'cbf' in self:
-            self.cbf.capture_stop()
+            await self.cbf.capture_stop()
 
-    def capture_done(self):
+    async def capture_done(self):
         if 'sdp' in self:
-            self.sdp.capture_done()
+            await self.sdp.capture_done()
 
-    def product_deconfigure(self):
+    async def product_deconfigure(self):
         if 'sdp' in self:
-            self.sdp.product_deconfigure()
+            await self.sdp.product_deconfigure()
