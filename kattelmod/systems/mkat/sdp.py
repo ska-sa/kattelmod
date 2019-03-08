@@ -45,7 +45,7 @@ class ScienceDataProcessor(KATCPComponent):
         return lookup.get(msg.reply.arguments[1], CaptureState.UNKNOWN) \
             if msg.succeeded else CaptureState.UNCONFIGURED
 
-    def product_configure(self, sub, receptors):
+    async def product_configure(self, sub, receptors):
         subarray_product = 'array_{}_{}'.format(sub.sub_nr, sub.product)
         self._validate(post_configure=False)
         initial_state = self.get_capture_state(subarray_product)

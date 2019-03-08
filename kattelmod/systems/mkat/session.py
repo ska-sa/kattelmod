@@ -20,13 +20,13 @@ class CaptureSession(BaseCaptureSession):
         return None if not endpoint else TelescopeState(endpoint) \
             if endpoint != 'fake' else FakeTelescopeState()
 
-    def product_configure(self, args):
+    async def product_configure(self, args):
         initial_state = CaptureState.UNKNOWN
         if ('sub', 'sdp', 'ants') in self:
             ants = [comp.observer for comp in self.ants]
             self.sdp._start()
             prod_conf = self.sdp.product_configure
-            initial_state = prod_conf(self.sub, sorted(ants))
+            initial_state = await prod_conf(self.sub, sorted(ants))
         self._telstate = self.components._telstate = self._get_telstate(args)
         # The obs telstate is only configured on capture_init since it needs
         # a capture block ID view - disable it for now to avoid pollution

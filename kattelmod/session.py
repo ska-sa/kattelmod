@@ -53,7 +53,7 @@ class CaptureSession(object):
         """True if CaptureSession contains top-level component(s) by name or value."""
         if isinstance(key, Component):
             return key in self.components
-        elif hasattr(key, '__iter__'):
+        elif hasattr(key, '__iter__') and not isinstance(key, str):
             return all(comp in self for comp in key)
         else:
             return hasattr(self, key) and getattr(self, key) in self.components

@@ -151,8 +151,9 @@ class KATCPComponent(Component):
         if self._started:
             return
         super(KATCPComponent, self)._start()
-        with async_timeout.timeout(5):
-            self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)
+        try:
+            with async_timeout.timeout(5):
+                self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)
         except asyncio.TimeoutError:
             raise asyncio.TimeoutError("Timed out trying to connect '{}' to client '{}'"
                                        .format(self._name, self._endpoint)) from None
@@ -306,7 +307,7 @@ def construct_component(comp_type, comp_name=None, params=None):
     params = params if params else {}
     # Cull any unknown parameters before constructing object
     # XXX Figure out a better way to construct from another similar component
-    expected_args = NewComponent.__init__.__func__.__code__.co_varnames[1:]
+    expected_args = NewComponent.__init__.__code__.co_varnames[1:]
     params = {k: v for (k, v) in params.items() if k in expected_args}
     try:
         comp = NewComponent(**params)
