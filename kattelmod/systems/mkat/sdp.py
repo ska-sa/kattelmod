@@ -43,10 +43,10 @@ class ScienceDataProcessor(KATCPComponent):
         self._validate(post_configure=False)
         try:
             msg, _ = await self._client.request('capture-status', subarray_product)
-            lookup = {'idle': CaptureState.CONFIGURED,
-                      'init_wait': CaptureState.INITED,
-                      'capturing': CaptureState.STARTED}
-            return lookup.get(msg.arguments[1], CaptureState.UNKNOWN)
+            lookup = {b'idle': CaptureState.CONFIGURED,
+                      b'init_wait': CaptureState.INITED,
+                      b'capturing': CaptureState.STARTED}
+            return lookup.get(msg[0], CaptureState.UNKNOWN)
         except aiokatcp.FailReply:
             return CaptureState.UNCONFIGURED
 
@@ -91,7 +91,7 @@ class ScienceDataProcessor(KATCPComponent):
         try:
             msg, _ = await self._client.request('telstate-endpoint', self.subarray_product)
             # XXX log connection problems
-            return msg.arguments[1]
+            return msg[0].decode('utf-8')
         except aiokatcp.FailReply:
             return ''
 
@@ -103,4 +103,4 @@ class ScienceDataProcessor(KATCPComponent):
     async def capture_done(self):
         self._validate()
         with async_timeout.timeout(300):
-            await self._client.request('capture_done', self.subarray_product)
+            await self._client.request('capture-done', self.subarray_product)

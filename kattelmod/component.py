@@ -1,6 +1,8 @@
 import time
 import logging
 from importlib import import_module
+import inspect
+import asyncio
 
 import aiokatcp
 import async_timeout
@@ -71,8 +73,11 @@ class Component(object):
 
     @classmethod
     def _add_dummy_methods(cls, names, func=None):
+        async def dummy_coro(self):
+            pass
+
         for name in names.split(' '):
-            setattr(cls, name.strip(), func if func else lambda self: None)
+            setattr(cls, name.strip(), func if func else dummy_coro)
 
     async def _start(self):
         self._started = True
@@ -168,7 +173,9 @@ class KATCPComponent(Component):
 
 
 class MultiMethod(object):
-    """Call the same method on multiple similar objects.
+    """Call the same method on multiple similar objects. If any of them
+    returns an awaitable, return an awaitable that gathers the
+    results.
 
     Parameters
     ----------
@@ -192,10 +199,17 @@ class MultiMethod(object):
         self.__doc__ = description
 
     def __call__(self, *args, **kwargs):
+        awaitables = []
         for obj in self.objects:
             method = getattr(obj, self.name, None)
             if method:
-                method(*args, **kwargs)
+                result = method(*args, **kwargs)
+                if inspect.isawaitable(result):
+                    awaitables.append(result)
+        if awaitables:
+            return asyncio.gather(*awaitables)
+        else:
+            return None
 
 
 class MultiComponent(Component):

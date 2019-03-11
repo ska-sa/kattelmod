@@ -22,7 +22,7 @@ async def run():
             # Start a new compound scan (skip if dish will hit horizon or azimuth wrap)
             for compscan in session.new_compound_scan():
                 compscan.label = 'track'
-                compscan.track(target, duration=args.track_duration)
+                await compscan.track(target, duration=args.track_duration)
 
 
 asyncio.get_event_loop().run_until_complete(run())

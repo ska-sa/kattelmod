@@ -77,7 +77,8 @@ class CaptureSession(object):
 
     async def sleep(self, seconds, condition=None):
         """Sleep for the requested duration in seconds."""
-        await self._clock.sleep(seconds, condition)
+        # TODO: clock needs to be made async
+        self._clock.sleep(seconds, condition)
 
     @property
     def dry_run(self):
