@@ -16,11 +16,6 @@ import katpoint
 from .defaults import colors, user_logger
 from .utility import tbuild
 from .conf import get_system_configuration, configure_core
-from .kat7_session import CaptureSession as KAT7CaptureSession
-from .kat7_session import TimeSession as KAT7TimeSession
-from .rts_session import CaptureSession as RTSCaptureSession
-from .rts_session import TimeSession as RTSTimeSession
-from .rts_session import projections, default_proj
 from .mkat_session import CaptureSession as MKATCaptureSession
 from .mkat_session import TimeSession as MKATTimeSession
 from .mkat_session import projections, default_proj
@@ -219,13 +214,7 @@ def start_session(kat, **kwargs):
         Session object associated with started session
 
     """
-    if "kat7" in kat.system:
-        return (KAT7TimeSession(kat, **kwargs) if kat.dry_run
-                else KAT7CaptureSession(kat, **kwargs))
-    elif "mkat_rts" in kat.system:
-        return (RTSTimeSession(kat, **kwargs) if kat.dry_run
-                else RTSCaptureSession(kat, **kwargs))
-    elif "mkat" in kat.system:
+    if "mkat" in kat.system:
         return (MKATTimeSession(kat, **kwargs) if kat.dry_run
             else MKATCaptureSession(kat, **kwargs))
     else:
