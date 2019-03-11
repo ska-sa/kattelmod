@@ -92,7 +92,7 @@ class FakeClient(object):
             raise ValueError("Cannot wait on sensor %r which does not exist "
                              "on client %r" % (sensor_name, self.name))
         if sensor.strategy == 'none':
-	        raise ValueError("Cannot wait on sensor %r if it has no strategy "
+            raise ValueError("Cannot wait on sensor %r if it has no strategy "
                              "set - see kat.%s.sensor.%s.set_strategy" %
                              (sensor_name, self.name, sensor_name))
 
