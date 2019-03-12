@@ -1,171 +1,67 @@
 import time
-import threading
 import logging
+import asyncio
 
 
 logger = logging.getLogger(__name__)
 
 
-class Bed(object):
-    """A place where one thread sleeps, to be awoken by another thread."""
-    def __init__(self):
-        self.awake = threading.Event()
-        self.time_to_wake = None
-
-    def occupied(self):
-        return self.time_to_wake is not None and not self.awake.isSet()
-
-    def climb_in(self, time_to_wake, timeout):
-        self.time_to_wake = time_to_wake
-        self.awake.wait(timeout)
-        self.time_to_wake = None
-        self.awake.clear()
-
-    def wake_up(self):
-        self.awake.set()
-
-
-class SingleThreadError(Exception):
-    """The SingleThreadLock only allows a single thread ever to use it."""
-
-
-class SingleThreadLock(object):
-    """A 'lock' that only ever allows one thread to use it.
-
-    As soon as another thread attempts to acquire this object (or the same
-    thread re-enters it), an exception is raised. The 'lock' acquisition
-    will therefore never block. This object should therefore be interpreted
-    as an assertion about the threads using it as opposed to a true lock.
-
-    This class ensures that the warp clock will only ever have a single master
-    and slave thread to avoid clock screw-ups.
-
-    """
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.thread_name = ''
-
-    def __enter__(self):
-        self.acquire()
-
-    def __exit__(self, type, value, traceback):
-        self.release()
-        # Don't suppress exceptions
-        return False
-
-    def current_thread_name(self):
-        thread = threading.current_thread()
-        return "%s [%d]" % (thread.name, thread.ident)
-
-    def acquire(self, blocking=True):
-        """Acquire lock, raising exception if thread changed."""
-        current_thread = self.current_thread_name()
-        if self.thread_name and current_thread != self.thread_name:
-            msg = 'SingleThreadLock already used by thread %r, cannot accept %r' % \
-                  (self.thread_name, current_thread)
-            raise SingleThreadError(msg)
-        if not self._lock.acquire(False):
-            msg = 'Thread %r has re-entered SingleThreadLock' % (self.thread_name,)
-            raise SingleThreadError(msg)
-        self.thread_name = current_thread
-        return True
-
-    def release(self):
-        self._lock.release()
-
-
-class WarpClock(object):
-    """Time source with Bed that can warp ahead when both threads sleep."""
-    def __init__(self, start_time=None, warp=False):
-        self.offset = 0.0 if start_time is None else start_time - time.time()
-        self.warp = warp
-        self.bed = Bed()
-        self.master_lock = SingleThreadLock()
-        self.slave_lock = SingleThreadLock()
-        self.condition = None
-        self.condition_satisfied = False
-
-    def time(self):
-        return time.time() + self.offset
-
-    def check_and_wake_slave(self, timestamp=None):
-        timestamp = self.time() if timestamp is None else timestamp
-        with self.master_lock:
-            if self.bed.occupied():
-                if self.condition and self.condition():
-                    self.condition_satisfied = True
-                    self.bed.wake_up()
-                elif timestamp >= self.bed.time_to_wake:
-                    self.bed.wake_up()
-
-    def master_sleep(self, seconds):
-        with self.master_lock:
-            if self.warp and self.bed.occupied():
-                self.offset += seconds
-                logger.debug('Master %r warped %g s ahead at %.2f' %
-                             (self.master_lock.thread_name, seconds, self.time()))
-            else:
-                time.sleep(seconds)
-                logger.debug('Master %r slept for %g s at %.2f' %
-                             (self.master_lock.thread_name, seconds, self.time()))
-
-    def slave_sleep(self, seconds, condition=None):
-        with self.slave_lock:
-            self.condition = condition
-            self.condition_satisfied = False
-            logger.debug('Slave %r going to bed for %g s at %.2f' %
-                         (self.slave_lock.thread_name, seconds, self.time()))
-            self.bed.climb_in(self.time() + seconds, seconds)
-            logger.debug('Slave %r woke up at %.2f' %
-                         (self.slave_lock.thread_name, self.time(),))
-        return self.condition_satisfied
-
-    sleep = slave_sleep
-
-
-class PeriodicUpdaterThread(threading.Thread):
-    """Thread which periodically updates a group of components."""
+class PeriodicUpdater:
+    """Task which periodically updates a group of components."""
     def __init__(self, components, clock, period=0.1):
-        threading.Thread.__init__(self)
-        self.name = 'UpdateThread'
-        self.daemon = True
         self.components = components
         self.clock = clock
         # This is necessary to provide the correct timestamps for async sets
         for component in components:
             component._clock = clock
         self.period = period
-        self._thread_active = True
+        self._task = None
+        self._active = False
 
-    def __enter__(self):
+    async def __aenter__(self):
         """Enter context."""
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type, exc_value, traceback):
         """Exit context and stop the system."""
         self.stop()
-        self.join()
+        await self.join()
         # Don't suppress exceptions
         return False
 
-    def run(self):
-        while self._thread_active:
-            timestamp = self.clock.time()
-            for component in self.components:
-                # Force all sensor updates to happen at the same timestamp
-                component._update_time = timestamp
-                component._update(timestamp)
-                component._update_time = 0.0
-            after_update = self.clock.time()
-            update_time = after_update - timestamp
-            remaining_time = self.period - update_time
-            if remaining_time < 0:
-                logger.warn("Update thread is struggling: updates take "
-                            "%g seconds but repeat every %g seconds" %
-                            (update_time, self.period))
-            self.clock.check_and_wake_slave(after_update)
-            self.clock.master_sleep(remaining_time if remaining_time > 0 else 0)
+    async def _run(self):
+        try:
+            while self._active:
+                timestamp = self.clock.time()
+                for component in self.components:
+                    # Force all sensor updates to happen at the same timestamp
+                    component._update_time = timestamp
+                    component._update(timestamp)
+                    component._update_time = 0.0
+                after_update = self.clock.time()
+                update_time = after_update - timestamp
+                remaining_time = self.period - update_time
+                if remaining_time < 0:
+                    logger.warn("Update thread is struggling: updates take "
+                                "%g seconds but repeat every %g seconds" %
+                                (update_time, self.period))
+                await asyncio.sleep(remaining_time)
+        except Exception:
+            logger.exception('Exception in updater')
+            raise
+
+    def start(self):
+        if self._task is not None:
+            return
+        self._task = asyncio.get_event_loop().create_task(self._run())
+        self._active = True
 
     def stop(self):
-        self._thread_active = False
+        self._active = False
+
+    async def join(self):
+        if self._task is not None:
+            task = self._task
+            self._task = None
+            await task

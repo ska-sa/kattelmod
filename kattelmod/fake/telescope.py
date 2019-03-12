@@ -7,7 +7,8 @@ from katpoint import Catalogue
 from katcp import DeviceServer
 from katcp.kattypes import return_reply, Str
 
-from kattelmod.fake.updater import WarpClock, PeriodicUpdaterThread
+from kattelmod.fake.clock import RealClock, WarpClock
+from kattelmod.fake.updater import PeriodicUpdater
 from kattelmod.fake.sensor import FakeSensor
 from kattelmod.fake.client import FakeClient, ClientGroup, IgnoreUnknownMethods
 from kattelmod.fake import models
@@ -80,7 +81,7 @@ class FakeTelescope(object):
     def __init__(self, config_file, dry_run=False, start_time=None):
         self._config = load_config(config_file)
         self.sensors = IgnoreUnknownMethods()
-        self._clock = WarpClock(start_time, dry_run)
+        self._clock = WarpClock(start_time) if dry_run else RealClock(start_time)
         self._clients = []
         groups = {}
         for comp_name, component in self._config.items():
@@ -101,22 +102,21 @@ class FakeTelescope(object):
                                              for client_name in client_names],
                                 self._clock)
             setattr(self, group_name, group)
-        self.updater = PeriodicUpdaterThread(self._clients, self._clock, period=0.1)
+        self.updater = PeriodicUpdater(self._clients, self._clock, period=0.1)
         self.updater.start()
 
     def __del__(self):
         """Before deleting object, stop the system (this might not get called!)."""
         self.updater.stop()
-        self.updater.join()
 
-    def __enter__(self):
+    async def __aenter__(self):
         """Enter context."""
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type, exc_value, traceback):
         """Exit context and stop the system."""
         self.updater.stop()
-        self.updater.join()
+        await self.updater.join()
         # Don't suppress exceptions
         return False
 

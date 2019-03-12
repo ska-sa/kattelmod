@@ -25,4 +25,6 @@ async def run():
                 await compscan.track(target, duration=args.track_duration)
 
 
-asyncio.get_event_loop().run_until_complete(run())
+loop = session.make_event_loop(args)
+asyncio.set_event_loop(loop)
+loop.run_until_complete(run())

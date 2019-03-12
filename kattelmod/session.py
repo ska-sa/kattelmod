@@ -1,10 +1,12 @@
 import logging
 import argparse
+import asyncio
 
 from enum import IntEnum
 from katpoint import Timestamp, Catalogue
 
-from kattelmod.updater import WarpClock, PeriodicUpdaterThread
+from kattelmod.clock import RealClock, WarpClock, WarpEventLoop
+from kattelmod.updater import PeriodicUpdater
 from kattelmod.logger import configure_logging
 from kattelmod.component import Component
 
@@ -47,6 +49,7 @@ class CaptureSession(object):
         self.targets = False
         self.obs_params = {}
         self.logger = logging.getLogger('kat.session')
+        self.dry_run = False      # Updated by connect
 
     def __contains__(self, key):
         """True if CaptureSession contains top-level component(s) by name or value."""
@@ -77,19 +80,8 @@ class CaptureSession(object):
 
     async def sleep(self, seconds, condition=None):
         """Sleep for the requested duration in seconds."""
-        # TODO: clock needs to be made async
-        self._clock.sleep(seconds, condition)
-
-    @property
-    def dry_run(self):
-        return self._clock.warp
-    @dry_run.setter  # noqa: E301
-    def dry_run(self, flag):
-        all_fake = all([comp._is_fake for comp in flatten(self.components)])
-        if flag and not all_fake:
-            self.logger.warning('Could not enable dry-running as session '
-                                'contains non-fake components')
-        self._clock.warp = flag and all_fake
+        # TODO: need to handle the condition
+        await asyncio.sleep(seconds)
 
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)
@@ -165,7 +157,7 @@ class CaptureSession(object):
         # Stop updates first as telstate will disappear in product_deconfigure
         if self._updater:
             self._updater.stop()
-            self._updater.join()
+            await self._updater.join()
         # Now stop script log handler for same reason
         self._configure_logging(script_log=False)
         if self._initial_state < CaptureState.CONFIGURED:
@@ -173,15 +165,26 @@ class CaptureSession(object):
         # Stop components (including SDP) after all commands are done
         await self.components._stop()
 
-    async def connect(self, args=None):
+    def make_event_loop(self, args=None):
         # Get parameters from command line by default for a quick session init
         if args is None:
             args = self.argparser().parse_args()
-        # Set up clock and updater once start_time is known
-        self._clock = WarpClock(Timestamp(args.start_time).secs)
-        self.dry_run = args.dry_run
+        all_fake = all([comp._is_fake for comp in flatten(self.components)])
+        # Set up clock once start_time is known
+        if args.dry_run and not all_fake:
+            self.logger.warning('Could not enable dry-running as session '
+                                'contains non-fake components')
+        dry_run = args.dry_run and all_fake
+        clock_cls = WarpClock if self.dry_run else RealClock
+        clock = clock_cls(Timestamp(args.start_time).secs)
+        return WarpEventLoop(clock, dry_run)
+
+    async def connect(self, args=None):
+        loop = asyncio.get_event_loop()
+        self._clock = loop.clock
+        self.dry_run = isinstance(self._clock, WarpClock)
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
-        self._updater = PeriodicUpdaterThread(updatable_comps, self._clock, JIFFY) \
+        self._updater = PeriodicUpdater(updatable_comps, self._clock, JIFFY) \
             if updatable_comps else None
         # Set up logging once log_level is known and clock is available
         self._configure_logging(args.log_level)
