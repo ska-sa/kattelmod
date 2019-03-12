@@ -112,9 +112,12 @@ class WarpSelector(BaseSelector):
     def select(self, timeout: float = None) -> List[Tuple[SelectorKey, int]]:
         if timeout is None:
             raise ValueError('WarpSelector does not support infinite timeout')
-        if timeout > 0:
+        events = self.wrapped.select(timeout=0)
+        if not events and timeout > 0:
+            # If events is non-empty, there was a file handle already ready to
+            # work on, so a "real" system would not sleep.
             self.clock.advance(timeout)
-        return self.wrapped.select(timeout=0)
+        return events
 
     def close(self) -> None:
         self.wrapped.close()
