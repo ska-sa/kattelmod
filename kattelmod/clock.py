@@ -34,9 +34,16 @@ class AbstractClock(metaclass=ABCMeta):
 
 
 class RealClock(AbstractClock):
-    """Clock that ticks at same rate as real time but possibly offset from it"""
-    def __init__(self, offset: float = 0.0) -> None:
-        self._offset = float(offset)
+    """Clock that ticks at same rate as real time but possibly offset from it.
+
+    Parameters
+    ----------
+    start_time : float, optional
+        Initial time on the clock. If not specified, defaults to ``time.time()``
+        i.e., the clock will report real time.
+    """
+    def __init__(self, start_time: float = None) -> None:
+        self._offset = 0.0 if start_time is None else start_time - time.time()
         self._advanced = 0.0
         self._lock = threading.Lock()
 
@@ -59,13 +66,13 @@ class WarpClock:
 
     Parameters
     ----------
-    initial_time : float, optional
+    start_time : float, optional
         Initial time on the clock. If not specified, defaults to ``time.time()``.
     """
-    def __init__(self, initial_time: float = None) -> None:
-        if initial_time is None:
-            initial_time = time.time()
-        self._now = initial_time
+    def __init__(self, start_time: float = None) -> None:
+        if start_time is None:
+            start_time = time.time()
+        self._now = start_time
         self._advanced = 0.0
         self._lock = threading.Lock()
 

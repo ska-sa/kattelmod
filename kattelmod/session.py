@@ -175,8 +175,8 @@ class CaptureSession:
             self.logger.warning('Could not enable dry-running as session '
                                 'contains non-fake components')
         dry_run = args.dry_run and all_fake
-        clock_cls = WarpClock if self.dry_run else RealClock
-        clock = clock_cls(Timestamp(args.start_time).secs)
+        start_time = Timestamp(args.start_time).secs if args.start_time else None
+        clock = WarpClock(start_time) if self.dry_run else RealClock(start_time)
         return WarpEventLoop(clock, dry_run)
 
     async def connect(self, args=None):
