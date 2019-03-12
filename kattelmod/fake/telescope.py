@@ -36,7 +36,7 @@ class FakeCamEventServer(DeviceServer):
     def __init__(self, attributes, sensors, *args, **kwargs):
         self.attributes = attributes
         self.sensors = np.loadtxt(sensors, delimiter=',', skiprows=1, dtype=np.str)
-        super(FakeCamEventServer, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def setup_sensors(self):
         """Populate sensor objects on server."""
@@ -76,7 +76,7 @@ def load_config(config_file):
     return telescope
 
 
-class FakeTelescope(object):
+class FakeTelescope:
     """Connection object for a simulated KAT system."""
     def __init__(self, config_file, dry_run=False, start_time=None):
         self._config = load_config(config_file)

@@ -33,7 +33,7 @@ def _sensor_transform(sensor_value):
     return custom.get(sensor_value.__class__, lambda obj: obj)(sensor_value)
 
 
-class Component(object):
+class Component:
     """Basic element of telescope system that provides monitoring and control."""
     def __init__(self):
         self._name = ''
@@ -106,10 +106,10 @@ class TelstateUpdatingComponent(Component):
         self._elapsed_time = 0.0
         self._last_update = 0.0
         self._last_rate_limited_send = 0.0
-        super(TelstateUpdatingComponent, self).__init__()
+        super().__init__()
 
     def __setattr__(self, attr_name, value):
-        super(TelstateUpdatingComponent, self).__setattr__(attr_name, value)
+        super().__setattr__(attr_name, value)
         # Do sensor updates (either event or event-rate SENSOR_MIN_PERIOD)
         time_to_send = not is_rate_limited(attr_name) or \
             self._last_rate_limited_send == self._last_update
@@ -136,7 +136,7 @@ class TelstateUpdatingComponent(Component):
     async def _start(self):
         if self._started:
             return
-        await super(TelstateUpdatingComponent, self)._start()
+        await super()._start()
         # Reassign values to object attributes to trigger output to telstate
         for name in self._sensors:
             setattr(self, name, getattr(self, name))
@@ -145,7 +145,7 @@ class TelstateUpdatingComponent(Component):
 class KATCPComponent(Component):
     """Component based around a KATCP client connected to an external service."""
     def __init__(self, endpoint):
-        super(KATCPComponent, self).__init__()
+        super().__init__()
         self._client = None
         self._endpoint = endpoint_parser(-1)(endpoint)
         if self._endpoint.port < 0:
@@ -155,7 +155,7 @@ class KATCPComponent(Component):
     async def _start(self):
         if self._started:
             return
-        await super(KATCPComponent, self)._start()
+        await super()._start()
         try:
             with async_timeout.timeout(5):
                 self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)
@@ -169,10 +169,10 @@ class KATCPComponent(Component):
         if self._client:
             self._client.close()
             await self._client.wait_closed()
-        await super(KATCPComponent, self)._stop()
+        await super()._stop()
 
 
-class MultiMethod(object):
+class MultiMethod:
     """Call the same method on multiple similar objects. If any of them
     returns an awaitable, return an awaitable that gathers the
     results.
@@ -217,12 +217,12 @@ class MultiComponent(Component):
     _not_shared = ('_name', '_immutables', '_started', '_comps', '_fake')
 
     def __init__(self, name, comps):
-        super(MultiComponent, self).__init__()
+        super().__init__()
         self._name = name
         self._comps = list(comps)
         # Create corresponding attributes to access components
         for comp in comps:
-            super(MultiComponent, self).__setattr__(comp._name, comp)
+            super().__setattr__(comp._name, comp)
 
         def api_methods(obj):
             return {k: getattr(obj, k) for k in dir(obj)
@@ -236,11 +236,11 @@ class MultiComponent(Component):
             # Only create a top-level method if all components below have it
             if len(meths) == len(self._comps) and name not in self._not_shared:
                 multimethod = MultiMethod(self._comps, name, meths[0].__doc__)
-                super(MultiComponent, self).__setattr__(name, multimethod)
+                super().__setattr__(name, multimethod)
 
     def __setattr__(self, attr_name, value):
         if attr_name in self._not_shared:
-            super(MultiComponent, self).__setattr__(attr_name, value)
+            super().__setattr__(attr_name, value)
         else:
             # Set attribute on underlying components but not on self
             for comp in self._comps:
@@ -286,11 +286,11 @@ class MultiComponent(Component):
         return MultiComponent(self._name, fake_comps)
 
 
-class TargetObserverMixin(object):
+class TargetObserverMixin:
     """Add Target and Observer properties to any component."""
     def __init__(self):
         # NB to call super() here - see "The Sadness of Python's super()"
-        super(TargetObserverMixin, self).__init__()
+        super().__init__()
         self._observer = self._target = ''
 
     @property

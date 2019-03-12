@@ -36,7 +36,7 @@ def flatten(obj):
             yield from flatten(e)
 
 
-class CaptureSession(object):
+class CaptureSession:
     """Capturing a single capture block."""
     def __init__(self, components=()):
         # Initial logging setup just ensures that we can display early errors

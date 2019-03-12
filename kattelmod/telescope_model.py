@@ -14,13 +14,13 @@ hdf5_version = "3.0"
  # the version number is intrinsically linked to the telescope model, as this
  # is the arbiter of file structure and format
 
-class SPEADItemUpdate(object):
+class SPEADItemUpdate:
     def __init__(self, key, ts, value):
         self.key = key
         self.ts = ts
         self.value = value
 
-class Attribute(object):
+class Attribute:
     def __init__(self, name, critical=False, init_val=None):
         self.name = name
         self.value = init_val
@@ -46,7 +46,7 @@ class Attribute(object):
     def is_valid(self):
         return self.value is not None
 
-class Sensor(object):
+class Sensor:
     def __init__(self, name, critical=False):
         self.name = name
         self.critical = critical
@@ -101,7 +101,7 @@ class Sensor(object):
         dset.sort(axis=0)
         return dset
 
-class TelescopeComponent(object):
+class TelescopeComponent:
     def __init__(self,name,proxy_path=None):
         self.name = name
         self._h5_path = ""
@@ -142,7 +142,7 @@ class TelescopeComponent(object):
                 retval = retval and a.is_valid()
         return retval
 
-class TelescopeModel(object):
+class TelescopeModel:
     def __init__(self):
         self.components = {}
         self.model_version = hdf5_version

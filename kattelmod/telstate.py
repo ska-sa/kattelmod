@@ -7,7 +7,7 @@ except ImportError:
     katsdptelstate = None
 
 
-class FakeTelescopeState(object):
+class FakeTelescopeState:
     """Fake version of katsdptelstate.TelescopeState."""
     def __init__(self, endpoint=None, db=0):
         # If endpoint is given, we typically have a missing dependency issue

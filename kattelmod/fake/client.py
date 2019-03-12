@@ -8,7 +8,7 @@ from kattelmod.fake.sensor import FakeSensor, escape_name
 user_logger = logging.getLogger("user")
 
 
-class IgnoreUnknownMethods(object):
+class IgnoreUnknownMethods:
     def __getattr__(self, name):
         return IgnoreUnknownMethods()
     def __call__(self, *args, **kwargs):
@@ -17,7 +17,7 @@ class IgnoreUnknownMethods(object):
         return False
 
 
-class FakeClient(object):
+class FakeClient:
     """Fake KATCP client."""
     def __init__(self, name, model, config, clock):
         self.name = name
@@ -113,7 +113,7 @@ class FakeClient(object):
             raise
 
 
-class GroupRequest(object):
+class GroupRequest:
     """The old ArrayRequest class."""
     def __init__(self, array, name, description):
         self.array = array
@@ -127,7 +127,7 @@ class GroupRequest(object):
                 method(*args, **kwargs)
 
 
-class ClientGroup(object):
+class ClientGroup:
     """The old Array class."""
     def __init__(self, name, clients, clock):
         self.name = name

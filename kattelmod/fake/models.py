@@ -2,7 +2,7 @@ from katpoint import (Antenna, Target, rad2deg, deg2rad, wrap_angle,
                       construct_azel_target)
 
 
-class FakeModel(object):
+class FakeModel:
     def update(self, timestamp):
         pass
 

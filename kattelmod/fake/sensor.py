@@ -27,7 +27,7 @@ class SensorUpdate(namedtuple('SensorUpdate', 'update_seconds value_seconds '
 class FakeSensor(KATCPSensor):
     """Fake sensor."""
     def __init__(self, name, sensor_type, description, units='', params=None, clock=time):
-        super(FakeSensor, self).__init__()
+        super().__init__()
         self.name = name
         sensor_type = Sensor.parse_type(sensor_type)
         params = str(params).split(' ') if params else None
