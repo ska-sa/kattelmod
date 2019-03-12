@@ -79,9 +79,24 @@ class CaptureSession:
         return self._clock.time()
 
     async def sleep(self, seconds, condition=None):
-        """Sleep for the requested duration in seconds."""
-        # TODO: need to handle the condition
-        await asyncio.sleep(seconds)
+        """Sleep for the requested duration in seconds.
+
+        If condition is specified and is satisfied before the sleep interval,
+        returns its value. Otherwise, return False.
+        """
+        if condition is None:
+            await asyncio.sleep(seconds)
+            return False
+        else:
+            future = asyncio.get_event_loop().create_future()
+            self._updater.add_condition(condition, future)
+            try:
+                result = await asyncio.wait_for(future, seconds)
+                return result
+            except asyncio.TimeoutError:
+                return False
+            finally:
+                self._updater.remove_condition(condition, future)
 
     def argparser(self, *args, **kwargs):
         parser = argparse.ArgumentParser(*args, **kwargs)

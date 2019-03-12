@@ -7,7 +7,11 @@ logger = logging.getLogger(__name__)
 
 
 class PeriodicUpdater:
-    """Task which periodically updates a group of components."""
+    """Task which periodically updates a group of components.
+
+    After each update, it can also check conditions and signal futures if
+    they are true.
+    """
     def __init__(self, components, clock, period=0.1):
         self.components = components
         self.clock = clock
@@ -17,6 +21,7 @@ class PeriodicUpdater:
         self.period = period
         self._task = None
         self._active = False
+        self._checks = set()
 
     async def __aenter__(self):
         """Enter context."""
@@ -29,6 +34,17 @@ class PeriodicUpdater:
         await self.join()
         # Don't suppress exceptions
         return False
+
+    def _check_and_wake(self):
+        new_checks = set()
+        for (condition, future) in self._checks:
+            if not future.done():
+                result = condition()
+                if result:
+                    future.set_result(result)
+                else:
+                    new_checks.add((condition, future))
+        self._checks = new_checks
 
     async def _run(self):
         try:
@@ -46,6 +62,7 @@ class PeriodicUpdater:
                     logger.warn("Update thread is struggling: updates take "
                                 "%g seconds but repeat every %g seconds" %
                                 (update_time, self.period))
+                self._check_and_wake()
                 await asyncio.sleep(remaining_time)
         except Exception:
             logger.exception('Exception in updater')
@@ -65,3 +82,9 @@ class PeriodicUpdater:
             task = self._task
             self._task = None
             await task
+
+    def add_condition(self, condition, future):
+        self._checks.add((condition, future))
+
+    def remove_condition(self, condition, future):
+        self._checks.discard((condition, future))
