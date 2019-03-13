@@ -23,13 +23,13 @@ class AbstractClock(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def advance(self, delta: float) -> None:
-        """Instantly increase the return value of :meth:`time` by `delta`."""
+    def monotonic(self) -> float:
+        """Equivalent to time.monotonic() for this clock"""
         raise NotImplementedError
 
     @abstractmethod
-    def advanced(self) -> float:
-        """Total of all values given to :meth:`advance`."""
+    def advance(self, delta: float) -> None:
+        """Instantly increase the return value of :meth:`time` by `delta`."""
         raise NotImplementedError
 
 
@@ -44,21 +44,19 @@ class RealClock(AbstractClock):
     """
     def __init__(self, start_time: float = None) -> None:
         self._offset = 0.0 if start_time is None else start_time - time.time()
-        self._advanced = 0.0
         self._lock = threading.Lock()
 
     def time(self) -> float:
         with self._lock:
             return time.time() + self._offset
 
+    def monotonic(self) -> float:
+        with self._lock:
+            return time.monotonic() + self._offset
+
     def advance(self, delta: float) -> None:
         with self._lock:
             self._offset += delta
-            self._advanced += delta
-
-    def advanced(self) -> float:
-        with self._lock:
-            return self._advanced
 
 
 class WarpClock(AbstractClock):
@@ -72,22 +70,21 @@ class WarpClock(AbstractClock):
     def __init__(self, start_time: float = None) -> None:
         if start_time is None:
             start_time = time.time()
-        self._now = start_time
+        self._start_time = start_time
         self._advanced = 0.0
         self._lock = threading.Lock()
 
     def time(self) -> float:
         with self._lock:
-            return self._now
+            return self._start_time + self._advanced
+
+    def monotonic(self) -> float:
+        with self._lock:
+            return self._advanced
 
     def advance(self, delta: float) -> None:
         with self._lock:
-            self._now += delta
             self._advanced += delta
-
-    def advanced(self) -> float:
-        with self._lock:
-            return self._advanced
 
 
 class WarpSelector(BaseSelector):
@@ -148,4 +145,4 @@ class WarpEventLoop(asyncio.unix_events.SelectorEventLoop):
         self.clock = clock
 
     def time(self) -> float:
-        return super().time() + self.clock.advanced()
+        return self.clock.monotonic()
