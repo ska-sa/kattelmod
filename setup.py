@@ -25,4 +25,4 @@ setup(name="kattelmod",
       setup_requires=['katversion'],
       use_katversion=True,
       tests_require=["nose", "asynctest"],
-      install_requires=["numpy", "aiokatcp", "async-timeout", "katpoint"])
+      install_requires=["numpy", "aiokatcp", "async-timeout", "katpoint", "katsdptelstate"])

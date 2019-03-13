@@ -2,7 +2,7 @@ import argparse
 from typing import Any
 
 from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
-from kattelmod.telstate import TelescopeState, FakeTelescopeState
+from katsdptelstate import TelescopeState
 
 
 class CaptureSession(BaseCaptureSession):
@@ -21,7 +21,7 @@ class CaptureSession(BaseCaptureSession):
         else:
             endpoint = ''
         return None if not endpoint else TelescopeState(endpoint) \
-            if endpoint != 'fake' else FakeTelescopeState()
+            if endpoint != 'fake' else TelescopeState()
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN

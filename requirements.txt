@@ -3,8 +3,15 @@ async-timeout
 backports-abc             # via tornado
 certifi                   # via tornado
 decorator                 # via aiokatcp
+fakeredis                 # via katsdptelstate
 future                    # via katpoint
+ipaddress                 # via katsdptelstate
+msgpack                   # via katsdptelstate
+netifaces                 # via katsdptelstate
 numpy
 pyephem                   # via katpoint
-six                       # via singledispatch
+redis                     # via katsdptelstate
+six                       # via singledispatch, fakeredis
+
 git+ssh://git@github.com/ska-sa/katpoint#egg=katpoint
+git+ssh://git@github.com/ska-sa/katsdptelstate#egg=katsdptelstate

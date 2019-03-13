@@ -9,7 +9,7 @@ import aiokatcp
 import async_timeout
 from katpoint import Antenna, Target
 
-from kattelmod.telstate import endpoint_parser
+from katsdptelstate.endpoint import endpoint_parser
 
 from .clock import Clock
 
