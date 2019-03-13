@@ -17,7 +17,7 @@ class PeriodicUpdater:
     they are true.
     """
     def __init__(self, components: Sequence[TelstateUpdatingComponent],
-                 clock: Clock, period: float  = 0.1) -> None:
+                 clock: Clock, period: float = 0.1) -> None:
         # TODO: the type hint is for TelstateUpdatingComponent, but it could
         # be replaced by a mypy Protocol requiring _clock and _update.
         self.components = components
