@@ -1,7 +1,7 @@
 import logging
 import argparse
 import asyncio
-from typing import Dict, Generator, Callable, Iterable, Sequence, Any, Optional, Union
+from typing import Dict, Generator, Callable, Iterable, Any, Optional, Union
 
 from enum import IntEnum
 from katpoint import Timestamp, Catalogue, Target, Antenna
@@ -9,7 +9,7 @@ from katpoint import Timestamp, Catalogue, Target, Antenna
 from kattelmod.clock import AbstractClock, RealClock, WarpClock, WarpEventLoop
 from kattelmod.updater import PeriodicUpdater
 from kattelmod.logger import configure_logging
-from kattelmod.component import Component
+from kattelmod.component import Component, MultiComponent
 
 
 # Period of component updates, in seconds
@@ -39,10 +39,13 @@ def flatten(obj: Any) -> Generator[Any, None, None]:
 
 class CaptureSession():
     """Capturing a single capture block."""
-    def __init__(self, components: Sequence[Component] = ()) -> None:
+    def __init__(self, components: Union[MultiComponent, Iterable[Component]] = ()) -> None:
         # Initial logging setup just ensures that we can display early errors
         configure_logging(logging.WARN)
-        self.components = components
+        if not isinstance(components, MultiComponent):
+            self.components = MultiComponent('', components)
+        else:
+            self.components = components
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
