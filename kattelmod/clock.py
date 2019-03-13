@@ -4,87 +4,58 @@ import time
 import threading
 import socket
 from selectors import DefaultSelector, BaseSelector, SelectorKey
-from abc import ABCMeta, abstractmethod
 from typing import Union, List, Tuple, Mapping, Any
 
 
 _FileObject = Union[int, socket.socket]
 
 
-class AbstractClock(metaclass=ABCMeta):
+class Clock:
     """Clock that doesn't necessarily track wall clock time.
 
-    Implementations must be thread-safe because the current time may be
-    accessed by the logging system from other threads.
+    It can be discontinuously advanced in time, and it can run at a different
+    rate than real time (including zero, meaning that time only changes when
+    jumped).
+
+    It is thread-safe because the current time may be accessed by the logging
+    system from other threads.
+
+    Parameters
+    ----------
+    rate
+        Amount of time this clock moves per unit of real time
+    start_time
+        UNIX epoch time reported initially
     """
-    @abstractmethod
+    def __init__(self, rate: float = 1.0, start_time: float = None) -> None:
+        self._rate = rate
+        now = time.time()
+        if start_time is None:
+            start_time = now
+        self._lock = threading.Lock()
+        self._rate = rate
+        # Ensure now * self._rate + self._bias == start_time
+        self._bias = start_time - now * self._rate
+        self._advanced = 0.0
+
     def time(self) -> float:
         """Get current time in seconds since UNIX epoch"""
-        raise NotImplementedError
+        with self._lock:
+            return time.time() * self._rate + self._bias + self._advanced
 
-    @abstractmethod
     def monotonic(self) -> float:
         """Equivalent to time.monotonic() for this clock"""
-        raise NotImplementedError
+        with self._lock:
+            return time.monotonic() * self._rate + self._advanced
 
-    @abstractmethod
     def advance(self, delta: float) -> None:
         """Instantly increase the return value of :meth:`time` by `delta`."""
-        raise NotImplementedError
-
-
-class RealClock(AbstractClock):
-    """Clock that ticks at same rate as real time but possibly offset from it.
-
-    Parameters
-    ----------
-    start_time : float, optional
-        Initial time on the clock. If not specified, defaults to ``time.time()``
-        i.e., the clock will report real time.
-    """
-    def __init__(self, start_time: float = None) -> None:
-        self._offset = 0.0 if start_time is None else start_time - time.time()
-        self._lock = threading.Lock()
-
-    def time(self) -> float:
-        with self._lock:
-            return time.time() + self._offset
-
-    def monotonic(self) -> float:
-        with self._lock:
-            return time.monotonic() + self._offset
-
-    def advance(self, delta: float) -> None:
-        with self._lock:
-            self._offset += delta
-
-
-class WarpClock(AbstractClock):
-    """Clock that only changes time when explicitly advanced
-
-    Parameters
-    ----------
-    start_time : float, optional
-        Initial time on the clock. If not specified, defaults to ``time.time()``.
-    """
-    def __init__(self, start_time: float = None) -> None:
-        if start_time is None:
-            start_time = time.time()
-        self._start_time = start_time
-        self._advanced = 0.0
-        self._lock = threading.Lock()
-
-    def time(self) -> float:
-        with self._lock:
-            return self._start_time + self._advanced
-
-    def monotonic(self) -> float:
-        with self._lock:
-            return self._advanced
-
-    def advance(self, delta: float) -> None:
         with self._lock:
             self._advanced += delta
+
+    @property
+    def rate(self) -> float:
+        return self._rate
 
 
 class WarpSelector(BaseSelector):
@@ -93,7 +64,7 @@ class WarpSelector(BaseSelector):
     It wraps an existing selector so that it can still determine when events
     have occurred. If no selector is given, a default selector is created.
     """
-    def __init__(self, clock: AbstractClock, wrapped: BaseSelector = None) -> None:
+    def __init__(self, clock: Clock, wrapped: BaseSelector = None) -> None:
         self.wrapped = wrapped if wrapped is not None else DefaultSelector()
         self.clock = clock
 
@@ -138,7 +109,7 @@ class WarpEventLoop(asyncio.unix_events.SelectorEventLoop):
         created (and then wrapped if `warp` is true).
     """
 
-    def __init__(self, clock: AbstractClock, warp: bool = True, selector: BaseSelector = None):
+    def __init__(self, clock: Clock, warp: bool = True, selector: BaseSelector = None):
         if warp:
             selector = WarpSelector(clock, selector)
         super().__init__(selector=selector)

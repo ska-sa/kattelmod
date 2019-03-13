@@ -7,7 +7,7 @@ from katpoint import Catalogue
 from katcp import DeviceServer
 from katcp.kattypes import return_reply, Str
 
-from kattelmod.fake.clock import RealClock, WarpClock
+from kattelmod.fake.clock import Clock
 from kattelmod.fake.updater import PeriodicUpdater
 from kattelmod.fake.sensor import FakeSensor
 from kattelmod.fake.client import FakeClient, ClientGroup, IgnoreUnknownMethods
@@ -81,7 +81,7 @@ class FakeTelescope:
     def __init__(self, config_file, dry_run=False, start_time=None):
         self._config = load_config(config_file)
         self.sensors = IgnoreUnknownMethods()
-        self._clock = WarpClock(start_time) if dry_run else RealClock(start_time)
+        self._clock = Clock(0.0 if dry_run else 1.0, start_time)
         self._clients = []
         groups = {}
         for comp_name, component in self._config.items():

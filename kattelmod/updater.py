@@ -4,7 +4,7 @@ import asyncio
 from typing import Sequence, Set, Tuple, Callable, Any, Optional
 
 from .component import TelstateUpdatingComponent
-from .clock import AbstractClock
+from .clock import Clock
 
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class PeriodicUpdater:
     they are true.
     """
     def __init__(self, components: Sequence[TelstateUpdatingComponent],
-                 clock: AbstractClock, period: float  = 0.1) -> None:
+                 clock: Clock, period: float  = 0.1) -> None:
         # TODO: the type hint is for TelstateUpdatingComponent, but it could
         # be replaced by a mypy Protocol requiring _clock and _update.
         self.components = components

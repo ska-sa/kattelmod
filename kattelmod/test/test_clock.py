@@ -4,7 +4,7 @@ import asyncio
 import functools
 from socket import socketpair
 
-from ..clock import RealClock, WarpClock, WarpEventLoop
+from ..clock import Clock, WarpEventLoop
 
 
 # Testing clocks is tricky because they change every time you look. This
@@ -16,7 +16,7 @@ START_TIME = 1234567890.0
 class TestRealClock(unittest.TestCase):
     def test_realtime(self):
         """Default-constructed clock should track real time"""
-        clock = RealClock()
+        clock = Clock()
         now1 = time.time()
         now2 = clock.time()
         now3 = time.time()
@@ -31,7 +31,7 @@ class TestRealClock(unittest.TestCase):
 
     def test_start_time(self):
         """Clock with explicit start time"""
-        clock = RealClock(START_TIME)
+        clock = Clock(1.0, START_TIME)
         time1 = clock.time()
         mono1 = clock.monotonic()
         time.sleep(0.5)
@@ -43,7 +43,7 @@ class TestRealClock(unittest.TestCase):
 
     def test_advance(self):
         """Test that clock can be advanced"""
-        clock = RealClock(START_TIME)
+        clock = Clock(1.0, START_TIME)
         mono1 = clock.monotonic()
         clock.advance(3.5)
         mono2 = clock.monotonic()
@@ -53,7 +53,7 @@ class TestRealClock(unittest.TestCase):
 
 class TestWarpClock(unittest.TestCase):
     def test(self):
-        clock = WarpClock(START_TIME)
+        clock = Clock(0.0, START_TIME)
         monotonic_start = clock.monotonic()
         self.assertEqual(clock.time(), START_TIME)
 
@@ -65,7 +65,7 @@ class TestWarpClock(unittest.TestCase):
 def run_with_loop(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        loop = WarpEventLoop(WarpClock(START_TIME))
+        loop = WarpEventLoop(Clock(0.0, START_TIME))
         args[0].addCleanup(loop.close)
         loop.run_until_complete(func(*args, **kwargs))
 

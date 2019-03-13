@@ -13,7 +13,7 @@ from concurrent.futures import TimeoutError
 
 from kattelmod.telstate import endpoint_parser
 
-from .clock import AbstractClock, RealClock
+from .clock import Clock
 
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ class TelstateUpdatingComponent(Component):
     """Component that will update telstate when its attributes are set."""
     def __init__(self) -> None:
         self._telstate = None
-        self._clock = RealClock()     # type: AbstractClock
+        self._clock = Clock()
         self._update_time = 0.0
         self._elapsed_time = 0.0
         self._last_update = 0.0

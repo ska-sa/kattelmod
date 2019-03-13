@@ -6,7 +6,7 @@ from typing import Dict, Generator, Callable, Iterable, Any, Optional, Union
 from enum import IntEnum
 from katpoint import Timestamp, Catalogue, Target, Antenna
 
-from kattelmod.clock import AbstractClock, RealClock, WarpClock, WarpEventLoop
+from kattelmod.clock import Clock, WarpEventLoop
 from kattelmod.updater import PeriodicUpdater
 from kattelmod.logger import configure_logging
 from kattelmod.component import Component, MultiComponent
@@ -49,7 +49,7 @@ class CaptureSession():
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self._clock = None        # type: Optional[AbstractClock]
+        self._clock = None        # type: Optional[Clock]
         self._updater = None      # type: Optional[PeriodicUpdater]
         self.targets = False
         self.obs_params = {}      # type: Dict[str, Any]
@@ -196,14 +196,14 @@ class CaptureSession():
                                 'contains non-fake components')
         dry_run = args.dry_run and all_fake
         start_time = Timestamp(args.start_time).secs if args.start_time else None
-        clock = WarpClock(start_time) if dry_run else RealClock(start_time)
+        clock = Clock(0.0 if dry_run else 1.0, start_time)
         return WarpEventLoop(clock, dry_run)
 
     async def connect(self, args: argparse.Namespace = None) -> 'CaptureSession':
         loop = asyncio.get_event_loop()
         assert isinstance(loop, WarpEventLoop)
         self._clock = loop.clock
-        self.dry_run = isinstance(self._clock, WarpClock)
+        self.dry_run = self._clock.rate == 0.0
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
         self._updater = PeriodicUpdater(updatable_comps, self._clock, JIFFY) \
             if updatable_comps else None
