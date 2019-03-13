@@ -45,13 +45,10 @@ class TestPeriodicUpdater(asynctest.TestCase):
     async def test_periodic(self):
         comp = DummyComponent()
         await comp._start()
-        updater = PeriodicUpdater([comp], clock=self.loop.clock, period=2.0)
-        updater.start()
-        await asyncio.sleep(7)
-        self.assertEqual(comp._updates, [123456789.0, 123456791.0, 123456793.0, 123456795.0])
-        self.assertEqual(comp._clock, self.loop.clock)
-        updater.stop()
-        await updater.join()
+        async with PeriodicUpdater([comp], clock=self.loop.clock, period=2.0):
+            await asyncio.sleep(7)
+            self.assertEqual(comp._updates, [123456789.0, 123456791.0, 123456793.0, 123456795.0])
+            self.assertEqual(comp._clock, self.loop.clock)
         await comp._stop()
 
     def _condition(self):
@@ -62,37 +59,34 @@ class TestPeriodicUpdater(asynctest.TestCase):
             return False
 
     async def test_condition(self):
-
-        updater = PeriodicUpdater([], clock=self.loop.clock, period=2.0)
-        future = self.loop.create_future()
-        updater.add_condition(self._condition, future)
-        updater.start()
-        await asyncio.sleep(2)
-        self.assertFalse(future.done())
-        await asyncio.sleep(100)
-        self.assertTrue(future.done())
-        self.assertEqual(await future, 123456795.0)
+        async with PeriodicUpdater([], clock=self.loop.clock, period=2.0) as updater:
+            future = self.loop.create_future()
+            updater.add_condition(self._condition, future)
+            await asyncio.sleep(2)
+            self.assertFalse(future.done())
+            await asyncio.sleep(100)
+            self.assertTrue(future.done())
+            self.assertEqual(await future, 123456795.0)
 
     async def test_cancel_condition(self):
-        updater = PeriodicUpdater([], clock=self.loop.clock, period=2.0)
-        future = self.loop.create_future()
-        updater.add_condition(self._condition, future)
-        updater.start()
-        await asyncio.sleep(2)
-        self.assertFalse(future.done())
-        future.cancel()
-        await asyncio.sleep(100)
-        self.assertTrue(future.done())
-        with self.assertRaises(asyncio.CancelledError):
-            await future
+        async with PeriodicUpdater([], clock=self.loop.clock, period=2.0) as updater:
+            future = self.loop.create_future()
+            updater.add_condition(self._condition, future)
+            await asyncio.sleep(2)
+            self.assertFalse(future.done())
+            future.cancel()
+            await asyncio.sleep(100)
+            self.assertTrue(future.done())
+            with self.assertRaises(asyncio.CancelledError):
+                await future
 
     async def test_remove_condition(self):
-        updater = PeriodicUpdater([], clock=self.loop.clock, period=2.0)
-        future = self.loop.create_future()
-        updater.add_condition(self._condition, future)
-        updater.start()
-        await asyncio.sleep(2)
-        self.assertFalse(future.done())
-        updater.remove_condition(self._condition, future)
-        await asyncio.sleep(100)
-        self.assertFalse(future.done())
+        async with PeriodicUpdater([], clock=self.loop.clock, period=2.0) as updater:
+            future = self.loop.create_future()
+            updater.add_condition(self._condition, future)
+            updater.start()
+            await asyncio.sleep(2)
+            self.assertFalse(future.done())
+            updater.remove_condition(self._condition, future)
+            await asyncio.sleep(100)
+            self.assertFalse(future.done())
