@@ -2,6 +2,8 @@ aiokatcp
 async-timeout
 backports-abc             # via tornado
 certifi                   # via tornado
+decorator                 # via aiokatcp
+future                    # via katpoint
 numpy
 pyephem                   # via katpoint
 six                       # via singledispatch
