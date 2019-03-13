@@ -15,6 +15,7 @@ parser.set_defaults(description='Basic track')
 # Parse the command line
 args = parser.parse_args()
 
+
 async def run():
     # Start capture session, which creates HDF5 file
     async with await session.connect(args):

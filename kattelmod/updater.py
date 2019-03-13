@@ -1,7 +1,6 @@
-import time
 import logging
 import asyncio
-from typing import Sequence, Set, Tuple, Callable, Any, Optional
+from typing import Sequence, Set, Tuple, Callable, Any, Optional    # noqa: F401
 
 from .component import TelstateUpdatingComponent
 from .clock import Clock

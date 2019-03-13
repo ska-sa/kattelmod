@@ -1,7 +1,7 @@
 import logging
 import argparse
 import asyncio
-from typing import Dict, Generator, Callable, Iterable, Any, Optional, Union
+from typing import Dict, Generator, Callable, Iterable, Any, Optional, Union   # noqa: F401
 
 from enum import IntEnum
 from katpoint import Timestamp, Catalogue, Target, Antenna

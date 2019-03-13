@@ -9,6 +9,7 @@ import kattelmod
 
 testpath = os.path.dirname(kattelmod.test.__file__)
 
+
 class TestBasicTrack(unittest.TestCase):
     def test_run_script(self):
         script = os.path.join(testpath, 'basic_track.py')

@@ -99,7 +99,7 @@ class TestPeriodicUpdater(asynctest.TestCase):
         comp1 = DummyComponent(1.0)
         comp2 = DummyComponent(1.0)
         with self.assertLogs('kattelmod.updater', logging.WARNING) as cm:
-            async with PeriodicUpdater([comp1, comp2], clock=self.loop.clock, period=1.5) as updater:
+            async with PeriodicUpdater([comp1, comp2], clock=self.loop.clock, period=1.5):
                 await asyncio.sleep(6.5)
         self.assertRegex(cm.output[0], 'Update thread is struggling')
         expected = [123456789.0, 123456791.0, 123456793.0, 123456795.0]

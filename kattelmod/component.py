@@ -1,4 +1,3 @@
-import time
 import logging
 from importlib import import_module
 import inspect
@@ -9,7 +8,6 @@ from typing import (List, Dict, Mapping, MutableMapping, Sequence, Iterable, Ite
 import aiokatcp
 import async_timeout
 from katpoint import Antenna, Target
-from concurrent.futures import TimeoutError
 
 from kattelmod.telstate import endpoint_parser
 
