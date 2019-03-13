@@ -3,6 +3,8 @@ import logging
 from importlib import import_module
 import inspect
 import asyncio
+from typing import (List, Dict, Mapping, MutableMapping, Sequence, Iterable, Iterator,
+                    Awaitable, Callable, Optional, Any, Union)
 
 import aiokatcp
 import async_timeout
@@ -10,6 +12,8 @@ from katpoint import Antenna, Target
 from concurrent.futures import TimeoutError
 
 from kattelmod.telstate import endpoint_parser
+
+from .clock import AbstractClock, RealClock
 
 
 logger = logging.getLogger(__name__)
@@ -19,12 +23,12 @@ logger = logging.getLogger(__name__)
 SENSOR_MIN_PERIOD = 0.4
 
 
-def is_rate_limited(sensor_name):
+def is_rate_limited(sensor_name: str) -> bool:
     """Test whether sensor will have rate-limited updates."""
     return sensor_name.startswith('pos_')
 
 
-def _sensor_transform(sensor_value):
+def _sensor_transform(sensor_value: Any) -> Any:
     """Extract appropriate representation for sensors to put in telstate."""
     # Katpoint objects used to be averse to pickling but we also want to match
     # what CAM puts into telstate, which are description strings
@@ -35,35 +39,35 @@ def _sensor_transform(sensor_value):
 
 class Component:
     """Basic element of telescope system that provides monitoring and control."""
-    def __init__(self):
+    def __init__(self) -> None:
         self._name = ''
-        self._immutables = []
+        self._immutables = []    # type: List[str]
         self._started = False
 
     @classmethod
-    def _type(cls):
+    def _type(cls) -> str:
         module = cls.__module__.replace('kattelmod.systems.', '')
         return "{}.{}".format(module, cls.__name__)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<{} '{}' at {}>".format(self._type(), self._name, id(self))
 
     @property
-    def _updatable(self):
+    def _updatable(self) -> bool:
         """True if component is updatable via an updater thread."""
-        return hasattr(self, '_update') and callable(self._update)
+        return callable(getattr(self, '_update', None))
 
     @property
-    def _is_fake(self):
+    def _is_fake(self) -> bool:
         """True if component is fake."""
         return self._updatable and self.__class__.__module__.endswith('.fake')
 
     @property
-    def _sensors(self):
+    def _sensors(self) -> List[str]:
         return [name for name in sorted(dir(self))
                 if not name.startswith('_') and not callable(getattr(self, name))]
 
-    def _initialise_attributes(self, params):
+    def _initialise_attributes(self, params: MutableMapping[str, Any]) -> None:
         """Assign parameters in dict *params* to attributes."""
         if 'self' in params:
             del params['self']
@@ -72,20 +76,20 @@ class Component:
             setattr(self, name, value)
 
     @classmethod
-    def _add_dummy_methods(cls, names, func=None):
+    def _add_dummy_methods(cls, names: str, func: Callable = None) -> None:
         async def dummy_coro(self):
             pass
 
         for name in names.split(' '):
             setattr(cls, name.strip(), func if func else dummy_coro)
 
-    async def _start(self):
+    async def _start(self) -> None:
         self._started = True
 
-    async def _stop(self):
+    async def _stop(self) -> None:
         self._started = False
 
-    def _fake(self):
+    def _fake(self) -> 'Component':
         """Construct an equivalent fake component."""
         orig_type = self._type().rsplit('.', 2)
         fake_type = '{}.fake.{}'.format(orig_type[0], orig_type[2])
@@ -99,16 +103,16 @@ class Component:
 
 class TelstateUpdatingComponent(Component):
     """Component that will update telstate when its attributes are set."""
-    def __init__(self):
+    def __init__(self) -> None:
         self._telstate = None
-        self._clock = time
+        self._clock = RealClock()     # type: AbstractClock
         self._update_time = 0.0
         self._elapsed_time = 0.0
         self._last_update = 0.0
         self._last_rate_limited_send = 0.0
         super().__init__()
 
-    def __setattr__(self, attr_name, value):
+    def __setattr__(self, attr_name: str, value: Any) -> None:
         super().__setattr__(attr_name, value)
         # Do sensor updates (either event or event-rate SENSOR_MIN_PERIOD)
         time_to_send = not is_rate_limited(attr_name) or \
@@ -126,14 +130,14 @@ class TelstateUpdatingComponent(Component):
             self._telstate.add(sensor_name, _sensor_transform(value),
                                ts=ts, immutable=attr_name in self._immutables)
 
-    def _update(self, timestamp):
+    def _update(self, timestamp: float) -> None:
         self._elapsed_time = timestamp - self._last_update \
             if self._last_update else 0.0
         self._last_update = timestamp
         if timestamp - self._last_rate_limited_send > SENSOR_MIN_PERIOD:
             self._last_rate_limited_send = timestamp
 
-    async def _start(self):
+    async def _start(self) -> None:
         if self._started:
             return
         await super()._start()
@@ -144,15 +148,15 @@ class TelstateUpdatingComponent(Component):
 
 class KATCPComponent(Component):
     """Component based around a KATCP client connected to an external service."""
-    def __init__(self, endpoint):
+    def __init__(self, endpoint: str) -> None:
         super().__init__()
-        self._client = None
+        self._client = None    # type: Optional[aiokatcp.Client]
         self._endpoint = endpoint_parser(-1)(endpoint)
         if self._endpoint.port < 0:
             raise ValueError("Please specify port for KATCP client '{}'"
                              .format(endpoint))
 
-    async def _start(self):
+    async def _start(self) -> None:
         if self._started:
             return
         await super()._start()
@@ -163,7 +167,7 @@ class KATCPComponent(Component):
             raise asyncio.TimeoutError("Timed out trying to connect '{}' to client '{}'"
                                        .format(self._name, self._endpoint)) from None
 
-    async def _stop(self):
+    async def _stop(self) -> None:
         if not self._started:
             return
         if self._client:
@@ -193,13 +197,13 @@ class MultiMethod:
     all objects do have the method before it constructs this object.
 
     """
-    def __init__(self, objects, name, description):
+    def __init__(self, objects: Sequence[object], name: str, description: str) -> None:
         self.objects = objects
         self.name = name
         self.__doc__ = description
 
-    def __call__(self, *args, **kwargs):
-        awaitables = []
+    def __call__(self, *args: Any, **kwargs: Any) -> Optional[Awaitable]:
+        awaitables = []      # type: List[Awaitable]
         for obj in self.objects:
             method = getattr(obj, self.name, None)
             if method:
@@ -216,7 +220,7 @@ class MultiComponent(Component):
     """Combine multiple similar components into a single component."""
     _not_shared = ('_name', '_immutables', '_started', '_comps', '_fake')
 
-    def __init__(self, name, comps):
+    def __init__(self, name: str, comps: Iterable[Component]) -> None:
         super().__init__()
         self._name = name
         self._comps = list(comps)
@@ -224,11 +228,11 @@ class MultiComponent(Component):
         for comp in comps:
             super().__setattr__(comp._name, comp)
 
-        def api_methods(obj):
+        def api_methods(obj: object) -> Dict[str, Any]:
             return {k: getattr(obj, k) for k in dir(obj)
                     if callable(getattr(obj, k)) and not k.endswith('__')}
         # Register methods
-        methods = {}
+        methods = {}      # type: Dict[str, Any]
         for comp in self._comps:
             for name, method in api_methods(comp).items():
                 methods[name] = methods.get(name, []) + [method]
@@ -238,7 +242,7 @@ class MultiComponent(Component):
                 multimethod = MultiMethod(self._comps, name, meths[0].__doc__)
                 super().__setattr__(name, multimethod)
 
-    def __setattr__(self, attr_name, value):
+    def __setattr__(self, attr_name: str, value: Any) -> None:
         if attr_name in self._not_shared:
             super().__setattr__(attr_name, value)
         else:
@@ -246,7 +250,7 @@ class MultiComponent(Component):
             for comp in self._comps:
                 setattr(comp, attr_name, value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if len(self._comps) > 0:
             comp_types = [comp._type() for comp in self._comps]
             comp_type = comp_types[0] if len(set(comp_types)) == 1 else 'Component'
@@ -256,10 +260,10 @@ class MultiComponent(Component):
             comps = ""
         return "<MultiComponent '{}'{} at {}>".format(self._name, comps, id(self))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Component]:
         return iter(self._comps)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Component:
         """Access underlying component *key* via name."""
         comp = getattr(self, key, None)
         if comp in self._comps:
@@ -267,20 +271,20 @@ class MultiComponent(Component):
         else:
             raise KeyError("No component '{}' in '{}'".format(key, self._name))
 
-    def __contains__(self, key):
+    def __contains__(self, key: Union[str, Component, Iterable[Union[str, Component]]]) -> bool:
         """Test whether MultiComponent contains component(s) by name or value."""
         if isinstance(key, Component):
             return key in self._comps
-        elif hasattr(key, '__iter__'):
-            return all(comp in self for comp in key)
-        else:
+        elif isinstance(key, str):
             return hasattr(self, key) and getattr(self, key) in self._comps
+        else:
+            return all(comp in self for comp in key)
 
     @property
-    def _sensors(self):
+    def _sensors(self) -> List[str]:
         return []
 
-    def _fake(self):
+    def _fake(self) -> 'MultiComponent':
         """Construct an equivalent fake component by faking subcomponents."""
         fake_comps = [comp._fake() for comp in self._comps]
         return MultiComponent(self._name, fake_comps)
@@ -288,29 +292,29 @@ class MultiComponent(Component):
 
 class TargetObserverMixin:
     """Add Target and Observer properties to any component."""
-    def __init__(self):
+    def __init__(self) -> None:
         # NB to call super() here - see "The Sadness of Python's super()"
         super().__init__()
         self._observer = self._target = ''
 
     @property
-    def observer(self):
+    def observer(self) -> Union[str, Antenna]:
         return self._observer
     @observer.setter  # noqa: E301
-    def observer(self, observer):
+    def observer(self, observer: Union[str, Antenna]) -> None:
         self._observer = Antenna(observer) if observer else ''
         if self._target:
             self._target.antenna = self._observer
 
     @property
-    def target(self):
+    def target(self) -> Union[str, Target]:
         return self._target
     @target.setter  # noqa: E301
-    def target(self, target):
+    def target(self, target: Union[str, Target]) -> None:
         self._target = Target(target, antenna=self._observer) if target else ''
 
 
-def construct_component(comp_type, comp_name=None, params=None):
+def construct_component(comp_type: str, comp_name: str = None, params: Mapping[str, Any] = None) -> Component:
     """Construct component with given type string, name and parameters."""
     comp_module, comp_class = comp_type.rsplit('.', 1)
     module_path = "kattelmod.systems." + comp_module

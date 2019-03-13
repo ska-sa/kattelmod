@@ -29,9 +29,10 @@ def make_record_with_custom_clock(self, *args):
 
 
 # Monkey-patch custom clock and makeRecord method into logging module
-logging.clock = time
-logging.Logger._makeRecord = logging.Logger.makeRecord
-logging.Logger.makeRecord = make_record_with_custom_clock
+# Mypy does NOT like this, hence all the type: ignore.
+logging.clock = time                                         # type: ignore
+logging.Logger._makeRecord = logging.Logger.makeRecord       # type: ignore
+logging.Logger.makeRecord = make_record_with_custom_clock    # type: ignore
 
 
 class RobustDeliveryHandler(logging.Handler):

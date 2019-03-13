@@ -1,3 +1,6 @@
+import argparse
+from typing import Any
+
 from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
 from kattelmod.telstate import TelescopeState, FakeTelescopeState
 
@@ -5,12 +8,12 @@ from kattelmod.telstate import TelescopeState, FakeTelescopeState
 class CaptureSession(BaseCaptureSession):
     """Capture session for the MeerKAT system."""
 
-    def argparser(self, *args, **kwargs):
-        parser = super(CaptureSession, self).argparser(*args, **kwargs)
+    def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
+        parser = super().argparser(*args, **kwargs)
         parser.add_argument('--telstate')
         return parser
 
-    async def _get_telstate(self, args):
+    async def _get_telstate(self, args: argparse.Namespace) -> TelescopeState:
         if getattr(args, 'telstate', None):
             endpoint = args.telstate
         elif 'sdp' in self:
@@ -20,7 +23,7 @@ class CaptureSession(BaseCaptureSession):
         return None if not endpoint else TelescopeState(endpoint) \
             if endpoint != 'fake' else FakeTelescopeState()
 
-    async def product_configure(self, args):
+    async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN
         if ('sub', 'sdp', 'ants') in self:
             ants = [comp.observer for comp in self.ants]
@@ -34,7 +37,7 @@ class CaptureSession(BaseCaptureSession):
             self.obs._telstate = None
         return initial_state
 
-    async def capture_init(self):
+    async def capture_init(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_init()
             try:
@@ -50,18 +53,18 @@ class CaptureSession(BaseCaptureSession):
                 self.obs._telstate = cb_telstate
                 await self.obs._start()
 
-    async def capture_start(self):
+    async def capture_start(self) -> None:
         if 'cbf' in self:
             await self.cbf.capture_start()
 
-    async def capture_stop(self):
+    async def capture_stop(self) -> None:
         if 'cbf' in self:
             await self.cbf.capture_stop()
 
-    async def capture_done(self):
+    async def capture_done(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_done()
 
-    async def product_deconfigure(self):
+    async def product_deconfigure(self) -> None:
         if 'sdp' in self:
             await self.sdp.product_deconfigure()

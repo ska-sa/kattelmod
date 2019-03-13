@@ -1,13 +1,16 @@
 """Components for a standalone version of the SDP subsystem."""
 
 import json
+from typing import List
 
 import aiokatcp
 import async_timeout
+from katpoint import Antenna
 
 from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
                                  TargetObserverMixin)
 from kattelmod.session import CaptureState
+from .fake import Subarray as _Subarray
 
 
 class ConnectionError(IOError):
@@ -19,7 +22,7 @@ class ConfigurationError(ValueError):
 
 
 class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
-    def __init__(self):
+    def __init__(self) -> None:
         super(CorrelatorBeamformer, self).__init__()
         self._initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'
@@ -28,18 +31,18 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 
 
 class ScienceDataProcessor(KATCPComponent):
-    def __init__(self, master_controller, config):
+    def __init__(self, master_controller: str, config: dict) -> None:
         super(ScienceDataProcessor, self).__init__(master_controller)
         self._initialise_attributes(locals())
         self.subarray_product = ''
 
-    def _validate(self, post_configure=True):
+    def _validate(self, post_configure: bool = True) -> None:
         if not self._client:
             raise ConnectionError('SDP master controller not connected via KATCP')
         if post_configure and not self.subarray_product:
             raise ConfigurationError('SDP data product not configured')
 
-    async def get_capture_state(self, subarray_product):
+    async def get_capture_state(self, subarray_product: str) -> CaptureState:
         self._validate(post_configure=False)
         try:
             msg, _ = await self._client.request('capture-status', subarray_product)
@@ -50,7 +53,7 @@ class ScienceDataProcessor(KATCPComponent):
         except aiokatcp.FailReply:
             return CaptureState.UNCONFIGURED
 
-    async def product_configure(self, sub, receptors):
+    async def product_configure(self, sub: _Subarray, receptors: List[Antenna]):
         subarray_product = 'array_{}_{}'.format(sub.sub_nr, sub.product)
         self._validate(post_configure=False)
         initial_state = await self.get_capture_state(subarray_product)
@@ -81,12 +84,12 @@ class ScienceDataProcessor(KATCPComponent):
         self.subarray_product = subarray_product
         return initial_state
 
-    async def product_deconfigure(self):
+    async def product_deconfigure(self) -> None:
         self._validate()
         with async_timeout.timeout(300):
             await self._client.request('product-deconfigure', self.subarray_product)
 
-    async def get_telstate(self):
+    async def get_telstate(self) -> str:
         self._validate()
         try:
             msg, _ = await self._client.request('telstate-endpoint', self.subarray_product)
@@ -95,12 +98,12 @@ class ScienceDataProcessor(KATCPComponent):
         except aiokatcp.FailReply:
             return ''
 
-    async def capture_init(self):
+    async def capture_init(self) -> None:
         self._validate()
         with async_timeout.timeout(10):
             await self._client.request('capture-init', self.subarray_product)
 
-    async def capture_done(self):
+    async def capture_done(self) -> None:
         self._validate()
         with async_timeout.timeout(300):
             await self._client.request('capture-done', self.subarray_product)

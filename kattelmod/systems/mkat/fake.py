@@ -1,24 +1,26 @@
 """Components for a fake telescope."""
 
-from katpoint import Target, rad2deg, deg2rad, wrap_angle, construct_azel_target
+from typing import List, Tuple, Dict, Any, Union
+
+from katpoint import Antenna, Target, rad2deg, deg2rad, wrap_angle, construct_azel_target
 
 from kattelmod.component import TelstateUpdatingComponent, TargetObserverMixin
 from kattelmod.session import CaptureState
 
 
 class Subarray(TelstateUpdatingComponent):
-    def __init__(self, config_label='unknown', band='l', product='c856M4k',
-                 dump_rate=1.0, sub_nr=1, pool_resources=''):
+    def __init__(self, config_label: str = 'unknown', band: str = 'l', product: str = 'c856M4k',
+                 dump_rate: float = 1.0, sub_nr: int = 1, pool_resources: str = '') -> None:
         super(Subarray, self).__init__()
         self._initialise_attributes(locals())
 
 
 class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
-    def __init__(self, observer='',
-                 real_az_min_deg=-185, real_az_max_deg=275,
-                 real_el_min_deg=15, real_el_max_deg=92,
-                 max_slew_azim_dps=2.0, max_slew_elev_dps=1.0,
-                 inner_threshold_deg=0.01):
+    def __init__(self, observer: str = '',
+                 real_az_min_deg: float = -185.0, real_az_max_deg: float = 275.0,
+                 real_el_min_deg: float = 15.0, real_el_max_deg: float = 92.0,
+                 max_slew_azim_dps: float = 2.0, max_slew_elev_dps: float = 1.0,
+                 inner_threshold_deg: float = 0.01) -> None:
         super(AntennaPositioner, self).__init__()
         self._initialise_attributes(locals())
         self.activity = 'stop'
@@ -27,16 +29,16 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
         self.pos_actual_scan_elev = self.pos_request_scan_elev = 90.0
 
     @property
-    def target(self):
+    def target(self) -> Union[str, Target]:
         return self._target
     @target.setter  # noqa: E301
-    def target(self, target):
+    def target(self, target: Union[str, Target]) -> None:
         new_target = Target(target, antenna=self._observer) if target else ''
         if new_target != self._target and self.activity in ('scan', 'track', 'slew'):
             self.activity = 'slew' if new_target else 'stop'
         self._target = new_target
 
-    def _update(self, timestamp):
+    def _update(self, timestamp: float) -> None:
         super(AntennaPositioner, self)._update(timestamp)
         elapsed_time = self._elapsed_time
         if self.activity in ('error', 'stop'):
@@ -77,7 +79,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
 
 
 class Environment(TelstateUpdatingComponent):
-    def __init__(self):
+    def __init__(self) -> None:
         super(Environment, self).__init__()
         self._initialise_attributes(locals())
         self.pressure = 1020.3
@@ -88,10 +90,12 @@ class Environment(TelstateUpdatingComponent):
 
 
 class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
-    def __init__(self, product='c856M4k', n_chans=4096, n_accs=104448,
-                 bls_ordering=[], bandwidth=856000000.0, sync_time=1443692800,
-                 int_time=0.49978856074766354, scale_factor_timestamp=1712000000,
-                 center_freq=1284000000.0, observer=''):
+    def __init__(self, product: str = 'c856M4k', n_chans: int = 4096, n_accs: int = 104448,
+                 bls_ordering: List[Tuple[str, str]] = [], bandwidth: float = 856000000.0,
+                 sync_time: float = 1443692800.0,
+                 int_time: float = 0.49978856074766354,
+                 scale_factor_timestamp: float = 1712000000,
+                 center_freq: float = 1284000000.0, observer: str = ''):
         super(CorrelatorBeamformer, self).__init__()
         self._initialise_attributes(locals())
         self.target = ''
@@ -100,20 +104,20 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 
 
 class ScienceDataProcessor(TelstateUpdatingComponent):
-    def __init__(self):
+    def __init__(self) -> None:
         super(ScienceDataProcessor, self).__init__()
         self._initialise_attributes(locals())
         self._add_dummy_methods('product_deconfigure capture_init capture_done')
 
-    async def product_configure(self, product, receptors):
+    async def product_configure(self, sub: Subarray, receptors: List[Antenna]) -> CaptureState:
         return CaptureState.STARTED
 
-    async def get_telstate(self):
+    async def get_telstate(self) -> str:
         return ''
 
 
 class Observation(TelstateUpdatingComponent):
-    def __init__(self, params={}):
+    def __init__(self, params: Dict[str, Any] = {}):
         super(Observation, self).__init__()
         self._initialise_attributes(locals())
         self.label = ''

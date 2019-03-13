@@ -1,4 +1,5 @@
 import asyncio
+import asyncio.unix_events
 import time
 import threading
 import socket
@@ -16,7 +17,6 @@ class AbstractClock(metaclass=ABCMeta):
     Implementations must be thread-safe because the current time may be
     accessed by the logging system from other threads.
     """
-
     @abstractmethod
     def time(self) -> float:
         """Get current time in seconds since UNIX epoch"""
@@ -61,7 +61,7 @@ class RealClock(AbstractClock):
             return self._advanced
 
 
-class WarpClock:
+class WarpClock(AbstractClock):
     """Clock that only changes time when explicitly advanced
 
     Parameters
@@ -126,7 +126,7 @@ class WarpSelector(BaseSelector):
         return self.wrapped.get_map()
 
 
-class WarpEventLoop(asyncio.SelectorEventLoop):
+class WarpEventLoop(asyncio.unix_events.SelectorEventLoop):
     """Event loop that supports warping time when sleeping.
 
     Parameters

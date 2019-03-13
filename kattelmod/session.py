@@ -1,11 +1,12 @@
 import logging
 import argparse
 import asyncio
+from typing import Dict, Generator, Callable, Iterable, Sequence, Any, Optional, Union
 
 from enum import IntEnum
-from katpoint import Timestamp, Catalogue
+from katpoint import Timestamp, Catalogue, Target, Antenna
 
-from kattelmod.clock import RealClock, WarpClock, WarpEventLoop
+from kattelmod.clock import AbstractClock, RealClock, WarpClock, WarpEventLoop
 from kattelmod.updater import PeriodicUpdater
 from kattelmod.logger import configure_logging
 from kattelmod.component import Component
@@ -25,7 +26,7 @@ class CaptureState(IntEnum):
     STARTED = 40
 
 
-def flatten(obj):
+def flatten(obj: Any) -> Generator[Any, None, None]:
     """http://rightfootin.blogspot.co.za/2006/09/more-on-python-flatten.html"""
     try:
         it = iter(obj)
@@ -36,49 +37,49 @@ def flatten(obj):
             yield from flatten(e)
 
 
-class CaptureSession:
+class CaptureSession():
     """Capturing a single capture block."""
-    def __init__(self, components=()):
+    def __init__(self, components: Sequence[Component] = ()) -> None:
         # Initial logging setup just ensures that we can display early errors
         configure_logging(logging.WARN)
         self.components = components
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self._clock = self._updater = None
+        self._clock = None        # type: Optional[AbstractClock]
+        self._updater = None      # type: Optional[PeriodicUpdater]
         self.targets = False
-        self.obs_params = {}
+        self.obs_params = {}      # type: Dict[str, Any]
         self.logger = logging.getLogger('kat.session')
         self.dry_run = False      # Updated by connect
 
-    def __contains__(self, key):
+    def __contains__(self, key: Union[str, Component, Iterable[Union[str, Component]]]) -> bool:
         """True if CaptureSession contains top-level component(s) by name or value."""
         if isinstance(key, Component):
             return key in self.components
-        elif hasattr(key, '__iter__') and not isinstance(key, str):
-            return all(comp in self for comp in key)
-        else:
+        elif isinstance(key, str):
             return hasattr(self, key) and getattr(self, key) in self.components
+        else:
+            return all(comp in self for comp in key)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'CaptureSession':
         """Enter context."""
         if self._initial_state < CaptureState.STARTED:
             await self.capture_start()
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, *args) -> None:
         """Exit context."""
         if self._initial_state < CaptureState.STARTED:
             await self.capture_stop()
         await self.disconnect()
-        # Don't suppress exceptions
-        return False
 
-    def time(self):
+    def time(self) -> float:
         """Current time in UTC seconds since Unix epoch."""
+        assert self._clock is not None
         return self._clock.time()
 
-    async def sleep(self, seconds, condition=None):
+    async def sleep(self, seconds: float, condition: Callable[[], Any] = None) -> Any:
         """Sleep for the requested duration in seconds.
 
         If condition is specified and is satisfied before the sleep interval,
@@ -89,6 +90,7 @@ class CaptureSession:
             return False
         else:
             future = asyncio.get_event_loop().create_future()
+            assert self._updater is not None
             self._updater.add_condition(condition, future)
             try:
                 result = await asyncio.wait_for(future, seconds)
@@ -98,7 +100,7 @@ class CaptureSession:
             finally:
                 self._updater.remove_condition(condition, future)
 
-    def argparser(self, *args, **kwargs):
+    def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(*args, **kwargs)
         parser.add_argument('--config', default='mkat/fake_2ant.cfg')
         parser.add_argument('--description')
@@ -111,7 +113,7 @@ class CaptureSession:
             parser.add_argument('targets', metavar='target', nargs='+')
         return parser
 
-    def collect_targets(self, *args):
+    def collect_targets(self, *args: str) -> Catalogue:
         """Collect targets specified by description string or catalogue file."""
         from_strings = from_catalogues = num_catalogues = 0
         targets = Catalogue(antenna=self.observer)
@@ -140,14 +142,14 @@ class CaptureSession:
                          from_catalogues, num_catalogues, from_strings)
         return targets
 
-    def _fake(self):
+    def _fake(self) -> 'CaptureSession':
         """Construct an equivalent fake session."""
         if hasattr(self.components, '_fake'):
             return type(self)(self.components._fake())
         else:
             return type(self)([comp._fake() for comp in self.components])
 
-    def _configure_logging(self, log_level=None, script_log=True):
+    def _configure_logging(self, log_level: Union[int, str] = None, script_log: bool = True) -> None:
         if log_level is None:
             log_level = self.obs_params['log_level']
         script_log_cmd = None
@@ -156,7 +158,7 @@ class CaptureSession:
                 self.obs.script_log = msg
         configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
 
-    async def _start(self, args):
+    async def _start(self, args: argparse.Namespace) -> None:
         # Do product_configure first to get telstate
         self._initial_state = await self.product_configure(args)
         # Now start components to send attributes to telstate (once-off),
@@ -168,7 +170,7 @@ class CaptureSession:
         if self._updater:
             self._updater.start()
 
-    async def _stop(self):
+    async def _stop(self) -> None:
         # Stop updates first as telstate will disappear in product_deconfigure
         if self._updater:
             self._updater.stop()
@@ -180,7 +182,7 @@ class CaptureSession:
         # Stop components (including SDP) after all commands are done
         await self.components._stop()
 
-    def make_event_loop(self, args=None):
+    def make_event_loop(self, args: argparse.Namespace = None) -> WarpEventLoop:
         # Get parameters from command line by default for a quick session init
         if args is None:
             args = self.argparser().parse_args()
@@ -191,11 +193,12 @@ class CaptureSession:
                                 'contains non-fake components')
         dry_run = args.dry_run and all_fake
         start_time = Timestamp(args.start_time).secs if args.start_time else None
-        clock = WarpClock(start_time) if self.dry_run else RealClock(start_time)
+        clock = WarpClock(start_time) if dry_run else RealClock(start_time)
         return WarpEventLoop(clock, dry_run)
 
-    async def connect(self, args=None):
+    async def connect(self, args: argparse.Namespace = None) -> 'CaptureSession':
         loop = asyncio.get_event_loop()
+        assert isinstance(loop, WarpEventLoop)
         self._clock = loop.clock
         self.dry_run = isinstance(self._clock, WarpClock)
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
@@ -211,35 +214,35 @@ class CaptureSession:
             self.targets = self.collect_targets(*args.targets)
         return self
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         if self._initial_state < CaptureState.INITED:
             await self.capture_done()
         if not self.obs_params['dont_stop']:
             await self._stop()
 
-    def new_compound_scan(self):
+    def new_compound_scan(self) -> Generator['CaptureSession', None, None]:
         yield self
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self.obs.label
     @label.setter  # noqa: E301
-    def label(self, label):
+    def label(self, label: str) -> None:
         self.obs.label = label
 
     @property
-    def target(self):
+    def target(self) -> Union[str, Target]:
         return self.cbf.target if 'cbf' in self else \
             self.ants[0].target if 'ants' in self else None
     @target.setter  # noqa: E301
-    def target(self, target):
+    def target(self, target: Union[str, Target]) -> None:
         if 'ants' in self:
             self.ants.target = target
         if 'cbf' in self:
             self.cbf.target = target
 
     @property
-    def observer(self):
+    def observer(self) -> Union[str, Antenna]:
         return self.cbf.observer if 'cbf' in self else \
             self.ants[0].observer if 'ants' in self else None
 
@@ -261,6 +264,25 @@ class CaptureSession:
         await self.sleep(duration)
         self.logger.info('target tracked for {:g} seconds'.format(duration))
         return True
+
+    async def product_configure(self, args: argparse.Namespace) -> CaptureState:
+        raise NotImplementedError
+
+    async def capture_init(self) -> None:
+        raise NotImplementedError
+
+    async def capture_start(self) -> None:
+        raise NotImplementedError
+
+    async def capture_stop(self) -> None:
+        raise NotImplementedError
+
+    async def capture_done(self) -> None:
+        raise NotImplementedError
+
+    async def product_deconfigure(self) -> None:
+        raise NotImplementedError
+
 
 """
     time
