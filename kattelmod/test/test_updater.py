@@ -1,64 +1,98 @@
-import unittest
-import threading
-import logging
-import time
+import asyncio
 
-from kattelmod.updater import WarpClock, PeriodicUpdaterThread, SingleThreadError
+import asynctest
 
-
-logging.basicConfig(level=logging.DEBUG)
+from kattelmod.clock import Clock, WarpEventLoop
+from kattelmod.updater import PeriodicUpdater
+from kattelmod.component import TelstateUpdatingComponent
 
 
-class TestingUpdate(unittest.TestCase):
-    """Run 'nosetests -s --nologcapture' to see output."""
-    def setUp(self):
-        self.counter = 0
-        self._update_time = 0.
-        self._clock = time
+class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
+    def __init__(self, original: asyncio.AbstractEventLoopPolicy) -> None:
+        self.original = original
+
+    def get_event_loop(self) -> asyncio.AbstractEventLoop:
+        return self.original.get_event_loop()
+
+    def set_event_loop(self, loop) -> None:
+        self.original.set_event_loop(loop)
+
+    def new_event_loop(self) -> asyncio.AbstractEventLoop:
+        return WarpEventLoop(Clock(0.0, 123456789.0))
+
+
+class DummyComponent(TelstateUpdatingComponent):
+    def __init__(self):
+        super().__init__()
+        self._updates = []
 
     def _update(self, timestamp):
-        self.counter += 1
-        time.sleep(0.01)
-        print('Updated at', timestamp, 'counter =', self.counter)
+        self._updates.append(timestamp)
 
-    def test_slave_sleep(self):
-        """Expect to do 1.0 second warp and 1.0 second normal sleep."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.1):
-            self.clock.slave_sleep(1.0)
-            time.sleep(0.5)
-            self.clock.warp = False
-            self.clock.slave_sleep(0.5)
 
-    def test_overloaded_thread(self):
-        """Exercise thread overload warning."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.01):
-            self.clock.slave_sleep(0.05)
+class TestPeriodicUpdater(asynctest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Make asynctest create a WarpEventLoop
+        policy = WarpEventLoopPolicy(asyncio.get_event_loop_policy())
+        asyncio.set_event_loop_policy(policy)
 
-    def bad_sleep(self):
-        self.assertRaises(SingleThreadError, self.clock.slave_sleep, 1)
+    @classmethod
+    def tearDownClass(cls):
+        policy = asyncio.get_event_loop_policy()
+        asyncio.set_event_loop_policy(policy.original)
 
-    def test_single_master_slave(self):
-        """Check that only a single master and slave thread is allowed."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.1):
-            # Ensure that master sleep has happened at least once
-            self.clock.slave_sleep(0.5)
-            self.assertRaises(SingleThreadError, self.clock.master_sleep, 0.5)
-            # The pest thread will trigger an exception
-            pest_thread = threading.Thread(target=self.bad_sleep, name='PestThread')
-            pest_thread.start()
-            with self.clock.slave_lock:
-                self.assertRaises(SingleThreadError, self.clock.slave_sleep, 1)
+    async def test_periodic(self):
+        comp = DummyComponent()
+        await comp._start()
+        updater = PeriodicUpdater([comp], clock=self.loop.clock, period=2.0)
+        updater.start()
+        await asyncio.sleep(7)
+        self.assertEqual(comp._updates, [123456789.0, 123456791.0, 123456793.0, 123456795.0])
+        self.assertEqual(comp._clock, self.loop.clock)
+        updater.stop()
+        await updater.join()
+        await comp._stop()
 
-    def test_sleep_condition(self):
-        """Check that a condition can wake up a sleeping thread."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.1):
-            satisfied = self.clock.slave_sleep(0.95, condition=lambda: self.counter == 5)
-            self.assertTrue(satisfied, 'Sleep condition not satisfied')
-            self.assertEqual(self.counter, 5, 'Sleep condition not satisfied')
-            satisfied = self.clock.slave_sleep(0.95, condition=lambda: self.counter == 1000)
-            self.assertFalse(satisfied, 'Sleep timeout not satisfied')
-            self.assertEqual(self.counter, 15, 'Sleep timeout not satisfied')
+    def _condition(self):
+        now = self.loop.clock.time()
+        if now >= 123456794.0:
+            return now
+        else:
+            return False
+
+    async def test_condition(self):
+
+        updater = PeriodicUpdater([], clock=self.loop.clock, period=2.0)
+        future = self.loop.create_future()
+        updater.add_condition(self._condition, future)
+        updater.start()
+        await asyncio.sleep(2)
+        self.assertFalse(future.done())
+        await asyncio.sleep(100)
+        self.assertTrue(future.done())
+        self.assertEqual(await future, 123456795.0)
+
+    async def test_cancel_condition(self):
+        updater = PeriodicUpdater([], clock=self.loop.clock, period=2.0)
+        future = self.loop.create_future()
+        updater.add_condition(self._condition, future)
+        updater.start()
+        await asyncio.sleep(2)
+        self.assertFalse(future.done())
+        future.cancel()
+        await asyncio.sleep(100)
+        self.assertTrue(future.done())
+        with self.assertRaises(asyncio.CancelledError):
+            await future
+
+    async def test_remove_condition(self):
+        updater = PeriodicUpdater([], clock=self.loop.clock, period=2.0)
+        future = self.loop.create_future()
+        updater.add_condition(self._condition, future)
+        updater.start()
+        await asyncio.sleep(2)
+        self.assertFalse(future.done())
+        updater.remove_condition(self._condition, future)
+        await asyncio.sleep(100)
+        self.assertFalse(future.done())
