@@ -1,6 +1,7 @@
 import logging
 import argparse
 import asyncio
+import signal
 from typing import (Dict, Generator, Callable, Iterable, Coroutine,
                     Any, Optional, Union, TypeVar)   # noqa: F401
 
@@ -240,7 +241,9 @@ class CaptureSession:
         loop = self.make_event_loop(args)
         try:
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(wrapper(body))
+            task = loop.create_task(wrapper(body))
+            loop.add_signal_handler(signal.SIGINT, task.cancel)
+            return loop.run_until_complete(task)
         finally:
             loop.close()
 
