@@ -16,16 +16,12 @@ parser.set_defaults(description='Basic track')
 args = parser.parse_args()
 
 
-async def run():
-    # Start capture session, which creates HDF5 file
-    async with await session.connect(args):
-        for target in session.targets:
-            # Start a new compound scan (skip if dish will hit horizon or azimuth wrap)
-            for compscan in session.new_compound_scan():
-                compscan.label = 'track'
-                await compscan.track(target, duration=args.track_duration)
+async def run(session, args):
+    for target in session.targets:
+        # Start a new compound scan (skip if dish will hit horizon or azimuth wrap)
+        for compscan in session.new_compound_scan():
+            compscan.label = 'track'
+            await compscan.track(target, duration=args.track_duration)
 
 
-loop = session.make_event_loop(args)
-asyncio.set_event_loop(loop)
-loop.run_until_complete(run())
+session.run(args, run(session, args))

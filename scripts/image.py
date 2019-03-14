@@ -30,7 +30,7 @@ parser.set_defaults(description='Imaging run')
 args = parser.parse_args()
 
 # Start capture session, which creates data set
-with session.connect(args):
+async def run(session, args):
     bpcals = session.targets.filter('bpcal')
     gaincals = session.targets.filter('gaincal')
     targets = session.targets.filter(['~bpcal', '~gaincal'])
@@ -60,7 +60,7 @@ with session.connect(args):
                 for bpcal in bpcals:
                     for compscan in session.new_compound_scan():
                         compscan.label = 'track'
-                        compscan.track(bpcal, duration['bpcal'])
+                        await compscan.track(bpcal, duration['bpcal'])
             # Visit source if it is not a bandpass calibrator
             # (or bandpass calibrators are not treated specially)
             # If there are no targets specified, assume the calibrators are the targets, else
@@ -71,7 +71,7 @@ with session.connect(args):
                     track_duration = duration.get(tag, track_duration)
                 for compscan in session.new_compound_scan():
                     compscan.label = 'track'
-                    success = compscan.track(source, track_duration)
+                    success = await compscan.track(source, track_duration)
                 source_observed[n] = success
             if args.max_duration and session.time() > start_time + args.max_duration:
                 session.logger.info('Maximum script duration (%d s) exceeded, '
@@ -82,3 +82,5 @@ with session.connect(args):
             session.logger.warning('All imaging targets and gain cals are '
                                    'currently below horizon, stopping script')
             loop = False
+
+session.run(args, run(session, args))

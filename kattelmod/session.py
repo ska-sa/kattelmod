@@ -1,7 +1,8 @@
 import logging
 import argparse
 import asyncio
-from typing import Dict, Generator, Callable, Iterable, Any, Optional, Union   # noqa: F401
+from typing import (Dict, Generator, Callable, Iterable, Coroutine,
+                    Any, Optional, Union, TypeVar)   # noqa: F401
 
 from enum import IntEnum
 from katpoint import Timestamp, Catalogue, Target, Antenna
@@ -12,6 +13,7 @@ from kattelmod.logger import configure_logging
 from kattelmod.component import Component, MultiComponent
 
 
+_T = TypeVar('_T')
 # Period of component updates, in seconds
 JIFFY = 0.1
 
@@ -82,7 +84,7 @@ class CaptureSession:
         assert self._clock is not None
         return self._clock.time()
 
-    async def sleep(self, seconds: float, condition: Callable[[], Any] = None) -> Any:
+    async def sleep(self, seconds: float, condition: Callable[[], _T] = None) -> Union[bool, _T]:
         """Sleep for the requested duration in seconds.
 
         If condition is specified and is satisfied before the sleep interval,
@@ -222,6 +224,25 @@ class CaptureSession:
             await self.capture_done()
         if not self.obs_params['dont_stop']:
             await self._stop()
+
+    def run(self, args: argparse.Namespace, body: Coroutine[Any, Any, _T]) -> _T:
+        """Convenience function to handle setup.
+
+        It creates and starts the event loop, connects and enters the
+        session, then runs the `body` asynchronously. This replaces the
+        event loop of the thread, so should generally only be run from
+        a top-level script.
+        """
+        async def wrapper(body: Coroutine[Any, Any, _T]) -> _T:
+            async with await self.connect(args):
+                return await body
+
+        loop = self.make_event_loop(args)
+        try:
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(wrapper(body))
+        finally:
+            loop.close()
 
     def new_compound_scan(self) -> Generator['CaptureSession', None, None]:
         yield self
