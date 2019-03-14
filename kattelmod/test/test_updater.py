@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Union
+from typing import Union, List, Any, cast
 
 import asynctest
 
@@ -22,11 +22,17 @@ class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
     def new_event_loop(self) -> asyncio.AbstractEventLoop:
         return WarpEventLoop(Clock(0.0, 123456789.0))
 
+    def get_child_watcher(self) -> Any:
+        return self.original.get_child_watcher()
+
+    def set_child_watcher(self, watcher: Any) -> None:
+        self.original.set_child_watcher(watcher)
+
 
 class DummyComponent(TelstateUpdatingComponent):
     def __init__(self, consume: float = 0.0) -> None:
         super().__init__()
-        self._updates = []
+        self._updates = []           # type: List[float]
         self._consume = consume
 
     def _update(self, timestamp: float) -> None:
@@ -43,7 +49,7 @@ class TestPeriodicUpdater(asynctest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        policy = asyncio.get_event_loop_policy()
+        policy = cast(WarpEventLoopPolicy, asyncio.get_event_loop_policy())
         asyncio.set_event_loop_policy(policy.original)
 
     async def test_periodic(self) -> None:

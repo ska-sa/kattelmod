@@ -240,7 +240,7 @@ class CaptureSession:
         loop = self.make_event_loop(args)
         try:
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(wrapper(body))
+            return loop.run_until_complete(wrapper(body))
         finally:
             loop.close()
 

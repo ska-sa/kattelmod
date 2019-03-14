@@ -4,7 +4,7 @@ import unittest
 import os.path
 from subprocess import Popen, PIPE
 
-import kattelmod
+import kattelmod.test
 
 
 testpath = os.path.dirname(kattelmod.test.__file__)
