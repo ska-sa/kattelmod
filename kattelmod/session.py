@@ -150,10 +150,7 @@ class CaptureSession:
 
     def _fake(self) -> 'CaptureSession':
         """Construct an equivalent fake session."""
-        if hasattr(self.components, '_fake'):
-            return type(self)(self.components._fake())
-        else:
-            return type(self)([comp._fake() for comp in self.components])
+        return type(self)(self.components._fake())
 
     def _configure_logging(self, log_level: Union[int, str] = None, script_log: bool = True) -> None:
         if log_level is None:
