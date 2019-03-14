@@ -293,22 +293,22 @@ class CaptureSession:
         return True
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
-        raise NotImplementedError
+        raise NotImplementedError          # pragma: nocover
 
     async def capture_init(self) -> None:
-        raise NotImplementedError
+        raise NotImplementedError          # pragma: nocover
 
     async def capture_start(self) -> None:
-        raise NotImplementedError
+        raise NotImplementedError          # pragma: nocover
 
     async def capture_stop(self) -> None:
-        raise NotImplementedError
+        raise NotImplementedError          # pragma: nocover
 
     async def capture_done(self) -> None:
-        raise NotImplementedError
+        raise NotImplementedError          # pragma: nocover
 
     async def product_deconfigure(self) -> None:
-        raise NotImplementedError
+        raise NotImplementedError          # pragma: nocover
 
 
 """
