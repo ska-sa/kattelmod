@@ -37,7 +37,7 @@ def flatten(obj: Any) -> Generator[Any, None, None]:
             yield from flatten(e)
 
 
-class CaptureSession():
+class CaptureSession:
     """Capturing a single capture block."""
     def __init__(self, components: Union[MultiComponent, Iterable[Component]] = ()) -> None:
         # Initial logging setup just ensures that we can display early errors
