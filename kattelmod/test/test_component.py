@@ -129,8 +129,8 @@ class TestKATCPComponent(asynctest.ClockedTestCase):
         self.endpoint = self.server.sockets[0].getsockname()[:2]
         self.addCleanup(self.server.wait_closed)
         self.addCleanup(self.server.close)
-        self.reader = self.loop.create_future()    # type: Future[asyncio.StreamReader]
-        self.writer = self.loop.create_future()    # type: Future[asyncio.StreamWriter]
+        self.reader = self.loop.create_future()    # type: asyncio.Future[asyncio.StreamReader]
+        self.writer = self.loop.create_future()    # type: asyncio.Future[asyncio.StreamWriter]
 
     def _client_cb(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.reader.set_result(reader)
