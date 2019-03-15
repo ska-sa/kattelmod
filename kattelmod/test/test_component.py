@@ -1,6 +1,6 @@
 import asyncio
 import asynctest
-import mock
+from unittest import mock
 
 import katsdptelstate
 
