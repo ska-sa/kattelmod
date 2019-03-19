@@ -29,6 +29,20 @@ class TestRealClock(unittest.TestCase):
         self.assertLessEqual(now1, now2)
         self.assertLessEqual(now2, now3)
 
+    def test_non_realtime(self):
+        """Clock with non-unit rate"""
+        clock = Clock(rate=0.25)
+        real_now1 = time.monotonic()
+        now1 = clock.time()
+        mono1 = clock.monotonic()
+        time.sleep(0.5)
+        real_now2 = time.monotonic()
+        now2 = clock.time()
+        mono2 = clock.monotonic()
+        real_elapsed = real_now2 - real_now1
+        self.assertAlmostEqual((now2 - now1) * 0.25, real_elapsed, delta=CLOCK_TOL)
+        self.assertAlmostEqual((mono2 - mono1) * 0.25, real_elapsed, delta=CLOCK_TOL)
+
     def test_start_time(self):
         """Clock with explicit start time"""
         clock = Clock(1.0, START_TIME)
@@ -40,15 +54,6 @@ class TestRealClock(unittest.TestCase):
         self.assertAlmostEqual(time1, START_TIME, delta=CLOCK_TOL)
         self.assertAlmostEqual(time2, START_TIME + 0.5, delta=CLOCK_TOL)
         self.assertAlmostEqual(mono2 - mono1, 0.5, delta=CLOCK_TOL)
-
-    def test_advance(self):
-        """Test that clock can be advanced"""
-        clock = Clock(1.0, START_TIME)
-        mono1 = clock.monotonic()
-        clock.advance(3.5)
-        mono2 = clock.monotonic()
-        self.assertAlmostEqual(clock.time(), START_TIME + 3.5, delta=CLOCK_TOL)
-        self.assertAlmostEqual(mono2 - mono1, 3.5, delta=CLOCK_TOL)
 
 
 class TestWarpClock(unittest.TestCase):

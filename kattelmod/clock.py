@@ -23,39 +23,82 @@ class Clock:
     Parameters
     ----------
     rate
-        Amount of time this clock moves per unit of real time
+        Amount of real time it takes for a second to pass on this clock.
+        Zero is allowed but is treated specially: the user must call
+        :meth:`advance` to update the simulated time.
     start_time
         UNIX epoch time reported initially
     """
+    def __new__(cls, rate: float = 1.0, start_time: float = None) -> 'Clock':
+        if rate == 0.0:
+            return super().__new__(_WarpClock)
+        else:
+            return super().__new__(cls)
+
     def __init__(self, rate: float = 1.0, start_time: float = None) -> None:
-        self._rate = rate
         now = time.time()
         if start_time is None:
             start_time = now
         self._lock = threading.Lock()
         self._rate = rate
-        # Ensure now * self._rate + self._bias == start_time
-        self._bias = start_time - now * self._rate
+        # Ensure now / self._rate + self._bias == start_time
+        self._bias = start_time - now / self._rate
+
+    def time(self) -> float:
+        """Get current time in seconds since UNIX epoch"""
+        with self._lock:
+            return time.time() / self._rate + self._bias
+
+    def monotonic(self) -> float:
+        """Equivalent to time.monotonic() for this clock"""
+        with self._lock:
+            return time.monotonic() / self._rate
+
+    @property
+    def rate(self) -> float:
+        """Seconds of real time that pass per simulated second"""
+        return self._rate
+
+    def advance(self, delta: float) -> None:
+        """Instantly increase the return value of :meth:`time` by `delta`.
+
+        This may only be called if `rate` is zero.
+        """
+        raise TypeError('Cannot advance clock with non-zero rate')
+
+
+class _WarpClock(Clock):
+    """Implementation :class:`Clock` for zero rate.
+
+    It is made into a separate class because most of the implementation
+    details are somewhat different.
+    """
+    def __init__(self, rate: float = 0.0, start_time: float = None) -> None:
+        if start_time is None:
+            start_time = now
+        self._lock = threading.Lock()
+        self._start_time = start_time
         self._advanced = 0.0
 
     def time(self) -> float:
         """Get current time in seconds since UNIX epoch"""
         with self._lock:
-            return time.time() * self._rate + self._bias + self._advanced
+            return self._start_time + self._advanced
 
     def monotonic(self) -> float:
         """Equivalent to time.monotonic() for this clock"""
         with self._lock:
-            return time.monotonic() * self._rate + self._advanced
+            return self._advanced
+
+    @property
+    def rate(self) -> float:
+        """Seconds of real time that pass per simulated second"""
+        return 0.0
 
     def advance(self, delta: float) -> None:
         """Instantly increase the return value of :meth:`time` by `delta`."""
         with self._lock:
             self._advanced += delta
-
-    @property
-    def rate(self) -> float:
-        return self._rate
 
 
 class WarpSelector(BaseSelector):
@@ -80,8 +123,8 @@ class WarpSelector(BaseSelector):
     def select(self, timeout: float = None) -> List[Tuple[SelectorKey, int]]:
         if timeout is None:
             raise ValueError('WarpSelector does not support infinite timeout')
-        events = self.wrapped.select(timeout=0)
-        if not events and timeout > 0:
+        events = self.wrapped.select(timeout=timeout * self.clock.rate)
+        if isinstance(self.clock, _WarpClock) and not events and timeout > 0:
             # If events is non-empty, there was a file handle already ready to
             # work on, so a "real" system would not sleep.
             self.clock.advance(timeout)
