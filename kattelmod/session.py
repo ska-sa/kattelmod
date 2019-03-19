@@ -15,8 +15,6 @@ from kattelmod.component import Component, MultiComponent
 
 
 _T = TypeVar('_T')
-# Period of component updates, in seconds
-JIFFY = 0.1
 
 
 # Ideally use an OrderedEnum but there should be no confusion with only one enum
@@ -112,6 +110,8 @@ class CaptureSession:
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--log-level', default='INFO')
         parser.add_argument('--start-time')
+        parser.add_argument('--clock-ratio', type=float, default=1.0)
+        parser.add_argument('--update-time', type=float, default=0.1)
         # Positional arguments are assumed to be targets
         if self.targets:
             parser.add_argument('targets', metavar='target', nargs='+')
@@ -194,7 +194,7 @@ class CaptureSession:
                                 'contains non-fake components')
         dry_run = args.dry_run and all_fake
         start_time = Timestamp(args.start_time).secs if args.start_time else None
-        clock = Clock(0.0 if dry_run else 1.0, start_time)
+        clock = Clock(0.0 if dry_run else args.clock_ratio, start_time)
         return WarpEventLoop(clock, dry_run)
 
     async def connect(self, args: argparse.Namespace = None) -> 'CaptureSession':
@@ -202,7 +202,7 @@ class CaptureSession:
         assert isinstance(loop, WarpEventLoop)
         self.dry_run = get_clock().rate == 0.0
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
-        self._updater = PeriodicUpdater(updatable_comps, JIFFY) \
+        self._updater = PeriodicUpdater(updatable_comps, args.update_time) \
             if updatable_comps else None
         # Set up logging once log_level is known and clock is available
         self._configure_logging(args.log_level)
