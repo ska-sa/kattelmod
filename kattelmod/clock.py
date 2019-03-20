@@ -4,7 +4,9 @@ import time
 import threading
 import socket
 from selectors import DefaultSelector, BaseSelector, SelectorKey
-from typing import Union, List, Tuple, Mapping, Any
+from typing import Union, List, Tuple, Mapping, Any, Optional
+
+import async_timeout
 
 
 _FileObject = Union[int, socket.socket]
@@ -167,3 +169,20 @@ def get_clock() -> Clock:
     loop = asyncio.get_event_loop()
     assert isinstance(loop, WarpEventLoop)
     return loop.clock
+
+
+def real_timeout(timeout: Optional[float], *,
+                 loop: Optional[asyncio.AbstractEventLoop] = None) -> async_timeout.timeout:
+    """Wrapper for async_timeout that tries to count in real time.
+
+    If the event loop has a rate of 0 (dry-run) it doesn't do anything special,
+    but otherwise it scales the timeout appropriately.
+    """
+    if timeout is not None:
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        try:
+            timeout /= loop.clock.rate
+        except (AttributeError, ZeroDivisionError):
+            pass
+    return async_timeout.timeout(timeout, loop=loop)
