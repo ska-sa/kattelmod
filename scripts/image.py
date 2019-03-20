@@ -83,4 +83,4 @@ async def run(session, args):
                                    'currently below horizon, stopping script')
             loop = False
 
-session.run(args, run(session, args))
+session.run(args, run)

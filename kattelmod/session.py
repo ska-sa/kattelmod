@@ -223,7 +223,8 @@ class CaptureSession:
         if not self.obs_params['dont_stop']:
             await self._stop()
 
-    def run(self, args: argparse.Namespace, body: Coroutine[Any, Any, _T]) -> _T:
+    def run(self, args: argparse.Namespace,
+            body: Callable[['CaptureSession', argparse.Namespace], Coroutine[Any, Any, _T]]) -> _T:
         """Convenience function to handle setup.
 
         It creates and starts the event loop, connects and enters the
@@ -231,9 +232,10 @@ class CaptureSession:
         event loop of the thread, so should generally only be run from
         a top-level script.
         """
-        async def wrapper(body: Coroutine[Any, Any, _T]) -> _T:
+        async def wrapper(body: Callable[['CaptureSession', argparse.Namespace],
+                                         Coroutine[Any, Any, _T]]) -> _T:
             async with await self.connect(args):
-                return await body
+                return await body(self, args)
 
         loop = self.make_event_loop(args)
         try:

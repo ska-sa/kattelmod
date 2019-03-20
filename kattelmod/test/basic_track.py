@@ -24,4 +24,4 @@ async def run(session, args):
             await compscan.track(target, duration=args.track_duration)
 
 
-session.run(args, run(session, args))
+session.run(args, run)
