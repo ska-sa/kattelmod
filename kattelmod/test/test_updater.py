@@ -1,32 +1,11 @@
 import asyncio
 import logging
-from typing import Union, List, Any, cast
+from typing import Union, List      # noqa: F401
 
-import asynctest
-
-from kattelmod.clock import Clock, WarpEventLoop
+from kattelmod.clock import get_clock
 from kattelmod.updater import PeriodicUpdater
 from kattelmod.component import TelstateUpdatingComponent
-
-
-class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
-    def __init__(self, original: asyncio.AbstractEventLoopPolicy) -> None:
-        self.original = original
-
-    def get_event_loop(self) -> asyncio.AbstractEventLoop:
-        return self.original.get_event_loop()
-
-    def set_event_loop(self, loop) -> None:
-        self.original.set_event_loop(loop)
-
-    def new_event_loop(self) -> asyncio.AbstractEventLoop:
-        return WarpEventLoop(Clock(0.0, 123456789.0))
-
-    def get_child_watcher(self) -> Any:
-        return self.original.get_child_watcher()
-
-    def set_child_watcher(self, watcher: Any) -> None:
-        self.original.set_child_watcher(watcher)
+from kattelmod.test.test_clock import WarpEventLoopTestCase
 
 
 class DummyComponent(TelstateUpdatingComponent):
@@ -37,49 +16,38 @@ class DummyComponent(TelstateUpdatingComponent):
 
     def _update(self, timestamp: float) -> None:
         self._updates.append(timestamp)
-        self._clock.advance(self._consume)
+        get_clock().advance(self._consume)
 
 
-class TestPeriodicUpdater(asynctest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        # Make asynctest create a WarpEventLoop
-        policy = WarpEventLoopPolicy(asyncio.get_event_loop_policy())
-        asyncio.set_event_loop_policy(policy)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        policy = cast(WarpEventLoopPolicy, asyncio.get_event_loop_policy())
-        asyncio.set_event_loop_policy(policy.original)
-
+class TestPeriodicUpdater(WarpEventLoopTestCase):
     async def test_periodic(self) -> None:
         comp = DummyComponent()
         await comp._start()
-        async with PeriodicUpdater([comp], clock=self.loop.clock, period=2.0):
+        async with PeriodicUpdater([comp], period=2.0):
             await asyncio.sleep(7)
-            self.assertEqual(comp._updates, [123456789.0, 123456791.0, 123456793.0, 123456795.0])
-            self.assertEqual(comp._clock, self.loop.clock)
+            self.assertEqual(comp._updates,
+                             [1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0])
         await comp._stop()
 
     def _condition(self) -> Union[float, bool]:
         now = self.loop.clock.time()
-        if now >= 123456794.0:
+        if now >= 1234567895.0:
             return now
         else:
             return False
 
     async def test_condition(self) -> None:
-        async with PeriodicUpdater([], clock=self.loop.clock, period=2.0) as updater:
+        async with PeriodicUpdater([], period=2.0) as updater:
             future = self.loop.create_future()
             updater.add_condition(self._condition, future)
             await asyncio.sleep(2)
             self.assertFalse(future.done())
             await asyncio.sleep(100)
             self.assertTrue(future.done())
-            self.assertEqual(await future, 123456795.0)
+            self.assertEqual(await future, 1234567896.0)
 
     async def test_cancel_condition(self) -> None:
-        async with PeriodicUpdater([], clock=self.loop.clock, period=2.0) as updater:
+        async with PeriodicUpdater([], period=2.0) as updater:
             future = self.loop.create_future()
             updater.add_condition(self._condition, future)
             await asyncio.sleep(2)
@@ -91,7 +59,7 @@ class TestPeriodicUpdater(asynctest.TestCase):
                 await future
 
     async def test_remove_condition(self) -> None:
-        async with PeriodicUpdater([], clock=self.loop.clock, period=2.0) as updater:
+        async with PeriodicUpdater([], period=2.0) as updater:
             future = self.loop.create_future()
             updater.add_condition(self._condition, future)
             updater.start()
@@ -105,10 +73,10 @@ class TestPeriodicUpdater(asynctest.TestCase):
         comp1 = DummyComponent(1.0)
         comp2 = DummyComponent(1.0)
         with self.assertLogs('kattelmod.updater', logging.WARNING) as cm:
-            async with PeriodicUpdater([comp1, comp2], clock=self.loop.clock, period=1.5):
+            async with PeriodicUpdater([comp1, comp2], period=1.5):
                 await asyncio.sleep(6.5)
         self.assertRegex(cm.output[0], 'Update thread is struggling')
-        expected = [123456789.0, 123456791.0, 123456793.0, 123456795.0]
+        expected = [1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0]
         # The timestamp given for the update is unaffected by the time spent
         # inside the updates, so both components should see the same
         # timestamps.

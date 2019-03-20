@@ -6,10 +6,8 @@ import katsdptelstate
 
 import kattelmod
 from kattelmod.component import Component, TelstateUpdatingComponent, KATCPComponent, MultiMethod
-from kattelmod.clock import Clock
-
-
-BASE_TIME = 1234567890.0
+from kattelmod.clock import get_clock
+from kattelmod.test.test_clock import WarpEventLoopTestCase
 
 
 class DummyComponent(Component):
@@ -31,7 +29,7 @@ class DummyTelstateUpdatingComponent(TelstateUpdatingComponent):
         self.pos_foo = 1000.0     # Will be rate limited by name
 
 
-class TestComponent(asynctest.TestCase):
+class TestComponent(WarpEventLoopTestCase):
     def setUp(self):
         self.comp = DummyComponent(88.0)
 
@@ -64,18 +62,16 @@ class TestComponent(asynctest.TestCase):
             self.assertEqual(fake.speed, 88.0)
 
 
-class TestTelstateUpdatingComponent(asynctest.TestCase):
+class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
     async def setUp(self):
         self.telstate = katsdptelstate.TelescopeState()
-        self.clock = Clock(0.0, BASE_TIME)
         self.comp = DummyTelstateUpdatingComponent(88.0)
         self.comp._name = 'dummy'
         self.comp._telstate = self.telstate
-        self.comp._clock = self.clock
         await self.comp._start()
         # Some of the internal are based around whether there has been an update
         # yet.
-        self.comp._update(BASE_TIME)
+        self.comp._update(self.START_TIME)
 
     def test_setattr(self):
         """Basic test that setting an attribute updates telstate"""
@@ -83,11 +79,11 @@ class TestTelstateUpdatingComponent(asynctest.TestCase):
         self.assertTrue(self.telstate.is_immutable('dummy_speed'))
         # Initial value is pushed into the past
         self.assertEqual(self.telstate.get_range('dummy_temperature', st=0),
-                         [(451.0, BASE_TIME - 300.0)])
-        self.clock.advance(5)
+                         [(451.0, self.START_TIME - 300.0)])
+        get_clock().advance(5)
         self.comp.temperature = 100.0
         self.assertEqual(self.telstate.get_range('dummy_temperature', st=0),
-                         [(451.0, BASE_TIME - 300.0), (100.0, BASE_TIME + 5.0)])
+                         [(451.0, self.START_TIME - 300.0), (100.0, self.START_TIME + 5.0)])
 
     def test_updates(self):
         """Test interaction with _update and rate limiting.
@@ -97,23 +93,25 @@ class TestTelstateUpdatingComponent(asynctest.TestCase):
         class.
         """
         for i in range(6):
-            self.clock.advance(0.25)
-            self.comp._update(self.clock.time())
+            get_clock().advance(0.25)
+            self.comp._update(get_clock().time())
             self.comp.temperature += 1.0
             self.comp.pos_foo += 1.0
-        self.assertEqual(self.telstate.get_range('dummy_temperature', st=0),
-            [(451.0, BASE_TIME - 300.0),
-             (452.0, BASE_TIME + 0.25),
-             (453.0, BASE_TIME + 0.5),
-             (454.0, BASE_TIME + 0.75),
-             (455.0, BASE_TIME + 1.0),
-             (456.0, BASE_TIME + 1.25),
-             (457.0, BASE_TIME + 1.5)])
-        self.assertEqual(self.telstate.get_range('dummy_pos_foo', st=0),
-            [(1000.0, BASE_TIME - 300.0),
-             (1002.0, BASE_TIME + 0.5),
-             (1004.0, BASE_TIME + 1.0),
-             (1006.0, BASE_TIME + 1.5)])
+        self.assertEqual(
+            self.telstate.get_range('dummy_temperature', st=0),
+            [(451.0, self.START_TIME - 300.0),
+             (452.0, self.START_TIME + 0.25),
+             (453.0, self.START_TIME + 0.5),
+             (454.0, self.START_TIME + 0.75),
+             (455.0, self.START_TIME + 1.0),
+             (456.0, self.START_TIME + 1.25),
+             (457.0, self.START_TIME + 1.5)])
+        self.assertEqual(
+            self.telstate.get_range('dummy_pos_foo', st=0),
+            [(1000.0, self.START_TIME - 300.0),
+             (1002.0, self.START_TIME + 0.5),
+             (1004.0, self.START_TIME + 1.0),
+             (1006.0, self.START_TIME + 1.5)])
 
     def test_updatable(self):
         self.assertTrue(self.comp._updatable)
@@ -155,7 +153,7 @@ class TestKATCPComponent(asynctest.ClockedTestCase):
         writer = await self.writer
         writer.write(b'#version-connect katcp-protocol 5.0-MI\n')
         await writer.drain()
-        line = await reader.readline()
+        await reader.readline()
         writer.write(b'!ping[1] ok hello\n')
         await writer.drain()
 

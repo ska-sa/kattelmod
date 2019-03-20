@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # Track target(s) for a specified time.
 
-import asyncio
-
 from kattelmod import session_from_commandline
 
 session = session_from_commandline(targets=True)

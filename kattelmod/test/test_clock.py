@@ -3,6 +3,9 @@ import time
 import asyncio
 import functools
 from socket import socketpair
+from typing import Any, cast
+
+import asynctest
 
 from ..clock import Clock, WarpEventLoop
 
@@ -114,3 +117,43 @@ class TestWarpEventLoop(unittest.TestCase):
         with self.assertRaises(asyncio.TimeoutError):
             await asyncio.wait_for(reader.read(8), timeout=5)
         self.assertEqual(loop.time(), 5.0)
+
+
+class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
+    """Policy used in other tests to set up a warp event loop for the test"""
+    def __init__(self, original: asyncio.AbstractEventLoopPolicy,
+                 rate: float, start_time: float) -> None:
+        self.original = original
+        self.rate = rate
+        self.start_time = start_time
+
+    def get_event_loop(self) -> asyncio.AbstractEventLoop:
+        return self.original.get_event_loop()
+
+    def set_event_loop(self, loop) -> None:
+        self.original.set_event_loop(loop)
+
+    def new_event_loop(self) -> asyncio.AbstractEventLoop:
+        return WarpEventLoop(Clock(self.rate, self.start_time))
+
+    def get_child_watcher(self) -> Any:
+        return self.original.get_child_watcher()
+
+    def set_child_watcher(self, watcher: Any) -> None:
+        self.original.set_child_watcher(watcher)
+
+
+class WarpEventLoopTestCase(asynctest.TestCase):
+    RATE = 0.0
+    START_TIME = 1234567890.0
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Make asynctest create a WarpEventLoop
+        policy = WarpEventLoopPolicy(asyncio.get_event_loop_policy(), cls.RATE, cls.START_TIME)
+        asyncio.set_event_loop_policy(policy)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        policy = cast(WarpEventLoopPolicy, asyncio.get_event_loop_policy())
+        asyncio.set_event_loop_policy(policy.original)

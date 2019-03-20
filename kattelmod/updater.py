@@ -3,7 +3,7 @@ import asyncio
 from typing import Sequence, Set, Tuple, Callable, Any, Optional    # noqa: F401
 
 from .component import TelstateUpdatingComponent
-from .clock import Clock
+from .clock import get_clock
 
 
 logger = logging.getLogger(__name__)
@@ -16,14 +16,10 @@ class PeriodicUpdater:
     they are true.
     """
     def __init__(self, components: Sequence[TelstateUpdatingComponent],
-                 clock: Clock, period: float = 0.1) -> None:
+                 period: float = 0.1) -> None:
         # TODO: the type hint is for TelstateUpdatingComponent, but it could
-        # be replaced by a mypy Protocol requiring _clock and _update.
+        # be replaced by a mypy Protocol requiring _update.
         self.components = components
-        self.clock = clock
-        # This is necessary to provide the correct timestamps for async sets
-        for component in components:
-            component._clock = clock
         self.period = period
         self._task = None        # type: Optional[asyncio.Task]
         self._active = False
@@ -51,15 +47,16 @@ class PeriodicUpdater:
         self._checks = new_checks
 
     async def _run(self) -> None:
+        clock = get_clock()
         try:
             while self._active:
-                timestamp = self.clock.time()
+                timestamp = clock.time()
                 for component in self.components:
                     # Force all sensor updates to happen at the same timestamp
                     component._update_time = timestamp
                     component._update(timestamp)
                     component._update_time = 0.0
-                after_update = self.clock.time()
+                after_update = clock.time()
                 update_time = after_update - timestamp
                 remaining_time = self.period - update_time
                 if remaining_time < 0:

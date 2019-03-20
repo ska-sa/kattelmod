@@ -11,7 +11,7 @@ from katpoint import Antenna, Target
 
 from katsdptelstate.endpoint import endpoint_parser
 
-from .clock import Clock
+from .clock import get_clock
 
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,6 @@ class TelstateUpdatingComponent(Component):
     """Component that will update telstate when its attributes are set."""
     def __init__(self) -> None:
         self._telstate = None
-        self._clock = Clock()
         self._update_time = 0.0
         self._elapsed_time = 0.0
         self._last_update = 0.0
@@ -118,7 +117,7 @@ class TelstateUpdatingComponent(Component):
         if not attr_name.startswith('_') and self._telstate and time_to_send:
             sensor_name = "{}_{}".format(self._name, attr_name)
             # Use fixed update time while within an update() call
-            ts = self._update_time if self._update_time else self._clock.time()
+            ts = self._update_time if self._update_time else get_clock().time()
             # If this is initial sensor update, move it into recent past to
             # avoid race conditions in e.g. CBF simulator that reads it
             if not self._last_update:

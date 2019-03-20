@@ -75,7 +75,7 @@ class _WarpClock(Clock):
     """
     def __init__(self, rate: float = 0.0, start_time: float = None) -> None:
         if start_time is None:
-            start_time = now
+            start_time = time.time()
         self._lock = threading.Lock()
         self._start_time = start_time
         self._advanced = 0.0
@@ -160,3 +160,10 @@ class WarpEventLoop(asyncio.unix_events.SelectorEventLoop):
 
     def time(self) -> float:
         return self.clock.monotonic()
+
+
+def get_clock() -> Clock:
+    """Clock of the current event loop"""
+    loop = asyncio.get_event_loop()
+    assert isinstance(loop, WarpEventLoop)
+    return loop.clock

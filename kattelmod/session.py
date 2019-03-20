@@ -2,13 +2,13 @@ import logging
 import argparse
 import asyncio
 import signal
-from typing import (Dict, Generator, Callable, Iterable, Coroutine,
-                    Any, Optional, Union, TypeVar)   # noqa: F401
+from typing import (Dict, Generator, Callable, Iterable, Coroutine,   # noqa: F401
+                    Any, Optional, Union, TypeVar)
 
 from enum import IntEnum
 from katpoint import Timestamp, Catalogue, Target, Antenna
 
-from kattelmod.clock import Clock, WarpEventLoop
+from kattelmod.clock import Clock, WarpEventLoop, get_clock
 from kattelmod.updater import PeriodicUpdater
 from kattelmod.logger import configure_logging
 from kattelmod.component import Component, MultiComponent
@@ -52,7 +52,6 @@ class CaptureSession:
         # Create corresponding attributes to access components
         for comp in components:
             setattr(self, comp._name, comp)
-        self._clock = None        # type: Optional[Clock]
         self._updater = None      # type: Optional[PeriodicUpdater]
         self.targets = False
         self.obs_params = {}      # type: Dict[str, Any]
@@ -82,8 +81,7 @@ class CaptureSession:
 
     def time(self) -> float:
         """Current time in UTC seconds since Unix epoch."""
-        assert self._clock is not None
-        return self._clock.time()
+        return get_clock().time()
 
     async def sleep(self, seconds: float, condition: Callable[[], _T] = None) -> Union[bool, _T]:
         """Sleep for the requested duration in seconds.
@@ -159,7 +157,7 @@ class CaptureSession:
         if script_log and 'obs' in self:
             def script_log_cmd(msg):
                 self.obs.script_log = msg
-        configure_logging(log_level, script_log_cmd, self._clock, self.dry_run)
+        configure_logging(log_level, script_log_cmd, get_clock(), self.dry_run)
 
     async def _start(self, args: argparse.Namespace) -> None:
         # Do product_configure first to get telstate
@@ -202,10 +200,9 @@ class CaptureSession:
     async def connect(self, args: argparse.Namespace = None) -> 'CaptureSession':
         loop = asyncio.get_event_loop()
         assert isinstance(loop, WarpEventLoop)
-        self._clock = loop.clock
-        self.dry_run = self._clock.rate == 0.0
+        self.dry_run = get_clock().rate == 0.0
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
-        self._updater = PeriodicUpdater(updatable_comps, self._clock, JIFFY) \
+        self._updater = PeriodicUpdater(updatable_comps, JIFFY) \
             if updatable_comps else None
         # Set up logging once log_level is known and clock is available
         self._configure_logging(args.log_level)
