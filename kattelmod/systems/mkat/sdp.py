@@ -72,7 +72,8 @@ class ScienceDataProcessor(KATCPComponent):
                     simulate = input_['simulate'] = {}  # Upgrade to 1.1 API
                 if isinstance(simulate, dict):
                     simulate['antennas'] = [receptor.description for receptor in receptors]
-                    simulate['clock_ratio'] = get_clock().rate
+                    if get_clock().rate != 1.0:
+                        simulate['clock_ratio'] = get_clock().rate
                     if start_time is not None:
                         simulate['start_time'] = start_time
         # Insert the dump rate
