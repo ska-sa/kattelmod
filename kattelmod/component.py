@@ -6,12 +6,11 @@ from typing import (List, Dict, Mapping, MutableMapping, Sequence, Iterable, Ite
                     Awaitable, Callable, Optional, Any, Union)
 
 import aiokatcp
-import async_timeout
 from katpoint import Antenna, Target
 
 from katsdptelstate.endpoint import endpoint_parser
 
-from .clock import get_clock
+from .clock import get_clock, real_timeout
 
 
 logger = logging.getLogger(__name__)
@@ -158,7 +157,7 @@ class KATCPComponent(Component):
             return
         await super()._start()
         try:
-            with async_timeout.timeout(5):
+            with real_timeout(5):
                 self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)
         except asyncio.TimeoutError:
             raise asyncio.TimeoutError("Timed out trying to connect '{}' to client '{}'"

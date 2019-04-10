@@ -1,8 +1,10 @@
 import argparse
 from typing import Any
 
-from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
+from katpoint import Timestamp
 from katsdptelstate import TelescopeState
+
+from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
 
 
 class CaptureSession(BaseCaptureSession):
@@ -29,7 +31,8 @@ class CaptureSession(BaseCaptureSession):
             ants = [comp.observer for comp in self.ants]
             await self.sdp._start()
             prod_conf = self.sdp.product_configure
-            initial_state = await prod_conf(self.sub, sorted(ants))
+            start_time = Timestamp(args.start_time).secs if args.start_time else None
+            initial_state = await prod_conf(self.sub, sorted(ants), start_time)
         self._telstate = self.components._telstate = await self._get_telstate(args)
         # The obs telstate is only configured on capture_init since it needs
         # a capture block ID view - disable it for now to avoid pollution

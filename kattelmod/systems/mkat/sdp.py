@@ -1,12 +1,12 @@
 """Components for a standalone version of the SDP subsystem."""
 
 import json
-from typing import List
+from typing import List, Optional
 
 import aiokatcp
-import async_timeout
 from katpoint import Antenna
 
+from kattelmod.clock import get_clock, real_timeout
 from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
                                  TargetObserverMixin)
 from kattelmod.session import CaptureState
@@ -53,14 +53,15 @@ class ScienceDataProcessor(KATCPComponent):
         except aiokatcp.FailReply:
             return CaptureState.UNCONFIGURED
 
-    async def product_configure(self, sub: _Subarray, receptors: List[Antenna]):
+    async def product_configure(self, sub: _Subarray, receptors: List[Antenna],
+                                start_time: Optional[float] = None) -> CaptureState:
         subarray_product = 'array_{}_{}'.format(sub.sub_nr, sub.product)
         self._validate(post_configure=False)
         initial_state = await self.get_capture_state(subarray_product)
         config = self.config
         if not isinstance(config, dict):
             config = json.loads(config)
-        # Insert the antenna list and antenna positions
+        # Insert the antenna list, antenna positions and clock information
         for input_ in list(config['inputs'].values()):
             if input_['type'] == 'cbf.antenna_channelised_voltage':
                 input_['antennas'] = [receptor.name for receptor in receptors]
@@ -71,12 +72,16 @@ class ScienceDataProcessor(KATCPComponent):
                     simulate = input_['simulate'] = {}  # Upgrade to 1.1 API
                 if isinstance(simulate, dict):
                     simulate['antennas'] = [receptor.description for receptor in receptors]
+                    if get_clock().rate != 1.0:
+                        simulate['clock_ratio'] = get_clock().rate
+                    if start_time is not None:
+                        simulate['start_time'] = start_time
         # Insert the dump rate
         for output in list(config['outputs'].values()):
             if output['type'] in ['sdp.l0', 'sdp.vis'] and 'output_int_time' not in output:
                 output['output_int_time'] = 1.0 / sub.dump_rate
         try:
-            with async_timeout.timeout(300):
+            with real_timeout(300):
                 msg, _ = await self._client.request(
                     'product-configure', subarray_product, json.dumps(config))
         except aiokatcp.FailReply as exc:
@@ -86,7 +91,7 @@ class ScienceDataProcessor(KATCPComponent):
 
     async def product_deconfigure(self) -> None:
         self._validate()
-        with async_timeout.timeout(300):
+        with real_timeout(300):
             await self._client.request('product-deconfigure', self.subarray_product)
 
     async def get_telstate(self) -> str:
@@ -100,10 +105,10 @@ class ScienceDataProcessor(KATCPComponent):
 
     async def capture_init(self) -> None:
         self._validate()
-        with async_timeout.timeout(10):
+        with real_timeout(10):
             await self._client.request('capture-init', self.subarray_product)
 
     async def capture_done(self) -> None:
         self._validate()
-        with async_timeout.timeout(300):
+        with real_timeout(300):
             await self._client.request('capture-done', self.subarray_product)

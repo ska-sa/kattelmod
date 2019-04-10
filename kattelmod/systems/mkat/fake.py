@@ -1,6 +1,6 @@
 """Components for a fake telescope."""
 
-from typing import List, Tuple, Dict, Any, Union
+from typing import List, Tuple, Dict, Any, Union, Optional
 
 from katpoint import Antenna, Target, rad2deg, deg2rad, wrap_angle, construct_azel_target
 
@@ -109,7 +109,8 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self._add_dummy_methods('product_deconfigure capture_init capture_done')
 
-    async def product_configure(self, sub: Subarray, receptors: List[Antenna]) -> CaptureState:
+    async def product_configure(self, sub: Subarray, receptors: List[Antenna],
+                                start_time: Optional[float] = None) -> CaptureState:
         return CaptureState.STARTED
 
     async def get_telstate(self) -> str:
