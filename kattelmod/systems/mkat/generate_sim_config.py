@@ -42,12 +42,12 @@ MASTER_MAP = {
     'localhost': 'localhost'
 }
 BANDWIDTH = {
-    'l': 856000000.0,
-    'uhf': 544000000.0
+    'L': 856000000.0,
+    'UHF': 544000000.0
 }
 CENTER_FREQ = {
-    'l': 1284000000.0,
-    'uhf': 816000000.0
+    'L': 1284000000.0,
+    'UHF': 816000000.0
 }
 
 
@@ -60,7 +60,7 @@ def generate(argv):
     parser.add_argument('--develop', action='store_true')
     parser.add_argument('--image', choices=['none', 'continuum', 'spectral'], default='none')
     parser.add_argument('--spectral-image', action='store_true')
-    parser.add_argument('--band', choices=['l', 'uhf'], default='l')
+    parser.add_argument('--band', type=str.upper, choices=['L', 'UHF'], default='L')
     parser.add_argument('--beamformer', choices=['none', 'engineering', 'ptuse'],
                         default='none')
     args = parser.parse_args(argv)
