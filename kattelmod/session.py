@@ -198,8 +198,6 @@ class CaptureSession:
         return WarpEventLoop(clock, dry_run)
 
     async def connect(self, args: argparse.Namespace = None) -> 'CaptureSession':
-        loop = asyncio.get_event_loop()
-        assert isinstance(loop, WarpEventLoop)
         self.dry_run = get_clock().rate == 0.0
         updatable_comps = [c for c in flatten(self.components) if c._updatable]
         self._updater = PeriodicUpdater(updatable_comps, JIFFY) \
