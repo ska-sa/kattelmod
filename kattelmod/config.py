@@ -1,5 +1,5 @@
 import os.path
-from ConfigParser import SafeConfigParser, Error
+from configparser import SafeConfigParser, Error
 from importlib import import_module
 
 import kattelmod.systems
@@ -32,7 +32,7 @@ def session_from_config(config_file):
         raise Error("Unknown telescope system '{}', expected one of {}"
                     .format(system, kattelmod.telescope_systems))
     # Load antenna descriptions
-    all_ants = file(os.path.join(systems_path, system, 'antennas.txt')).readlines()
+    all_ants = open(os.path.join(systems_path, system, 'antennas.txt')).readlines()
     all_ants = {line.split(',')[0]: line.strip() for line in all_ants}
     # Construct all components
     components = []

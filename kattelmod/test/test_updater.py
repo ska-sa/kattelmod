@@ -1,64 +1,84 @@
-import unittest
-import threading
+import asyncio
 import logging
-import time
+from typing import Union, List      # noqa: F401
 
-from kattelmod.updater import WarpClock, PeriodicUpdaterThread, SingleThreadError
+from kattelmod.clock import get_clock
+from kattelmod.updater import PeriodicUpdater
+from kattelmod.component import TelstateUpdatingComponent
+from kattelmod.test.test_clock import WarpEventLoopTestCase
 
 
-logging.basicConfig(level=logging.DEBUG)
+class DummyComponent(TelstateUpdatingComponent):
+    def __init__(self, consume: float = 0.0) -> None:
+        super().__init__()
+        self._updates = []           # type: List[float]
+        self._consume = consume
+
+    def _update(self, timestamp: float) -> None:
+        self._updates.append(timestamp)
+        get_clock().advance(self._consume)
 
 
-class TestingUpdate(unittest.TestCase):
-    """Run 'nosetests -s --nologcapture' to see output."""
-    def setUp(self):
-        self.counter = 0
-        self._update_time = 0.
-        self._clock = time
+class TestPeriodicUpdater(WarpEventLoopTestCase):
+    async def test_periodic(self) -> None:
+        comp = DummyComponent()
+        await comp._start()
+        async with PeriodicUpdater([comp], period=2.0):
+            await asyncio.sleep(7)
+            self.assertEqual(comp._updates,
+                             [1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0])
+        await comp._stop()
 
-    def _update(self, timestamp):
-        self.counter += 1
-        time.sleep(0.01)
-        print 'Updated at', timestamp, 'counter =', self.counter
+    def _condition(self) -> Union[float, bool]:
+        now = self.loop.clock.time()
+        if now >= 1234567895.0:
+            return now
+        else:
+            return False
 
-    def test_slave_sleep(self):
-        """Expect to do 1.0 second warp and 1.0 second normal sleep."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.1):
-            self.clock.slave_sleep(1.0)
-            time.sleep(0.5)
-            self.clock.warp = False
-            self.clock.slave_sleep(0.5)
+    async def test_condition(self) -> None:
+        async with PeriodicUpdater([], period=2.0) as updater:
+            future = self.loop.create_future()
+            updater.add_condition(self._condition, future)
+            await asyncio.sleep(2)
+            self.assertFalse(future.done())
+            await asyncio.sleep(100)
+            self.assertTrue(future.done())
+            self.assertEqual(await future, 1234567896.0)
 
-    def test_overloaded_thread(self):
-        """Exercise thread overload warning."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.01):
-            self.clock.slave_sleep(0.05)
+    async def test_cancel_condition(self) -> None:
+        async with PeriodicUpdater([], period=2.0) as updater:
+            future = self.loop.create_future()
+            updater.add_condition(self._condition, future)
+            await asyncio.sleep(2)
+            self.assertFalse(future.done())
+            future.cancel()
+            await asyncio.sleep(100)
+            self.assertTrue(future.done())
+            with self.assertRaises(asyncio.CancelledError):
+                await future
 
-    def bad_sleep(self):
-        self.assertRaises(SingleThreadError, self.clock.slave_sleep, 1)
+    async def test_remove_condition(self) -> None:
+        async with PeriodicUpdater([], period=2.0) as updater:
+            future = self.loop.create_future()
+            updater.add_condition(self._condition, future)
+            updater.start()
+            await asyncio.sleep(2)
+            self.assertFalse(future.done())
+            updater.remove_condition(self._condition, future)
+            await asyncio.sleep(100)
+            self.assertFalse(future.done())
 
-    def test_single_master_slave(self):
-        """Check that only a single master and slave thread is allowed."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.1):
-            # Ensure that master sleep has happened at least once
-            self.clock.slave_sleep(0.5)
-            self.assertRaises(SingleThreadError, self.clock.master_sleep, 0.5)
-            # The pest thread will trigger an exception
-            pest_thread = threading.Thread(target=self.bad_sleep, name='PestThread')
-            pest_thread.start()
-            with self.clock.slave_lock:
-                self.assertRaises(SingleThreadError, self.clock.slave_sleep, 1)
-
-    def test_sleep_condition(self):
-        """Check that a condition can wake up a sleeping thread."""
-        self.clock = WarpClock(warp=True)
-        with PeriodicUpdaterThread([self], self.clock, period=0.1):
-            satisfied = self.clock.slave_sleep(0.95, condition=lambda: self.counter == 5)
-            self.assertTrue(satisfied, 'Sleep condition not satisfied')
-            self.assertEquals(self.counter, 5, 'Sleep condition not satisfied')
-            satisfied = self.clock.slave_sleep(0.95, condition=lambda: self.counter == 1000)
-            self.assertFalse(satisfied, 'Sleep timeout not satisfied')
-            self.assertEquals(self.counter, 15, 'Sleep timeout not satisfied')
+    async def test_slow(self) -> None:
+        comp1 = DummyComponent(1.0)
+        comp2 = DummyComponent(1.0)
+        with self.assertLogs('kattelmod.updater', logging.WARNING) as cm:
+            async with PeriodicUpdater([comp1, comp2], period=1.5):
+                await asyncio.sleep(6.5)
+        self.assertRegex(cm.output[0], 'Update thread is struggling')
+        expected = [1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0]
+        # The timestamp given for the update is unaffected by the time spent
+        # inside the updates, so both components should see the same
+        # timestamps.
+        self.assertEqual(comp1._updates, expected)
+        self.assertEqual(comp2._updates, expected)

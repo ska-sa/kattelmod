@@ -19,9 +19,6 @@ def session_from_commandline(targets=False):
     session.targets = targets
     return session
 
-# Keep API clean when inspected by user via e.g. IPython
-del s
-
 # BEGIN VERSION CHECK
 # Get package version when locally imported from repo or via -e develop install
 try:

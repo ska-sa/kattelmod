@@ -1,42 +1,45 @@
+import argparse
+from typing import Any
+
 from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
-from kattelmod.telstate import TelescopeState, FakeTelescopeState
+from katsdptelstate import TelescopeState
 
 
 class CaptureSession(BaseCaptureSession):
     """Capture session for the MeerKAT system."""
 
-    def argparser(self, *args, **kwargs):
-        parser = super(CaptureSession, self).argparser(*args, **kwargs)
+    def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
+        parser = super().argparser(*args, **kwargs)
         parser.add_argument('--telstate')
         return parser
 
-    def _get_telstate(self, args):
+    async def _get_telstate(self, args: argparse.Namespace) -> TelescopeState:
         if getattr(args, 'telstate', None):
             endpoint = args.telstate
         elif 'sdp' in self:
-            endpoint = self.sdp.get_telstate()
+            endpoint = await self.sdp.get_telstate()
         else:
             endpoint = ''
         return None if not endpoint else TelescopeState(endpoint) \
-            if endpoint != 'fake' else FakeTelescopeState()
+            if endpoint != 'fake' else TelescopeState()
 
-    def product_configure(self, args):
+    async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN
         if ('sub', 'sdp', 'ants') in self:
             ants = [comp.observer for comp in self.ants]
-            self.sdp._start()
+            await self.sdp._start()
             prod_conf = self.sdp.product_configure
-            initial_state = prod_conf(self.sub, sorted(ants))
-        self._telstate = self.components._telstate = self._get_telstate(args)
+            initial_state = await prod_conf(self.sub, sorted(ants))
+        self._telstate = self.components._telstate = await self._get_telstate(args)
         # The obs telstate is only configured on capture_init since it needs
         # a capture block ID view - disable it for now to avoid pollution
         if 'obs' in self:
             self.obs._telstate = None
         return initial_state
 
-    def capture_init(self):
+    async def capture_init(self) -> None:
         if 'sdp' in self:
-            self.sdp.capture_init()
+            await self.sdp.capture_init()
             try:
                 capture_block_id = self._telstate['sdp_capture_block_id']
             except KeyError:
@@ -48,20 +51,20 @@ class CaptureSession(BaseCaptureSession):
             if 'obs' in self:
                 self.obs.params = self.obs_params
                 self.obs._telstate = cb_telstate
-                self.obs._start()
+                await self.obs._start()
 
-    def capture_start(self):
+    async def capture_start(self) -> None:
         if 'cbf' in self:
-            self.cbf.capture_start()
+            await self.cbf.capture_start()
 
-    def capture_stop(self):
+    async def capture_stop(self) -> None:
         if 'cbf' in self:
-            self.cbf.capture_stop()
+            await self.cbf.capture_stop()
 
-    def capture_done(self):
+    async def capture_done(self) -> None:
         if 'sdp' in self:
-            self.sdp.capture_done()
+            await self.sdp.capture_done()
 
-    def product_deconfigure(self):
+    async def product_deconfigure(self) -> None:
         if 'sdp' in self:
-            self.sdp.product_deconfigure()
+            await self.sdp.product_deconfigure()
