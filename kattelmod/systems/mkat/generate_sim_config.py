@@ -41,6 +41,14 @@ MASTER_MAP = {
     'lab': 'lab1.sdp.kat.ac.za',
     'localhost': 'localhost'
 }
+BANDWIDTH = {
+    'L': 856000000.0,
+    'UHF': 544000000.0
+}
+CENTER_FREQ = {
+    'L': 1284000000.0,
+    'UHF': 816000000.0
+}
 
 
 def generate(argv):
@@ -50,7 +58,9 @@ def generate(argv):
     parser.add_argument('-c', '--channels', type=int, choices=[1024, 4096, 32768], default=4096)
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
     parser.add_argument('--develop', action='store_true')
-    parser.add_argument('--band', choices=['l'], default='l')
+    parser.add_argument('--image', choices=['none', 'continuum', 'spectral'], default='none')
+    parser.add_argument('--spectral-image', action='store_true')
+    parser.add_argument('--band', type=str.upper, choices=['L', 'UHF'], default='L')
     parser.add_argument('--beamformer', choices=['none', 'engineering', 'ptuse'],
                         default='none')
     args = parser.parse_args(argv)
@@ -59,7 +69,7 @@ def generate(argv):
     while cbf_ants < args.antennas:
         cbf_ants *= 2
     groups = 4 * cbf_ants
-    bandwidth = 856000000.0
+    bandwidth = BANDWIDTH[args.band]
     # Round CBF integration time of 0.5s to nearest integer multiple
     n_accs = int(round(0.5 * bandwidth / args.channels / 256)) * 256
     cbf_int_time = n_accs * args.channels / bandwidth
@@ -68,7 +78,7 @@ def generate(argv):
     # completely).
     continuum_factor = max(2, args.channels // 1024)
     config = {
-        "version": "2.2",
+        "version": "2.4",
         "inputs": {
             "i0_antenna_channelised_voltage": {
                 "type": "cbf.antenna_channelised_voltage",
@@ -90,7 +100,7 @@ def generate(argv):
                 "n_chans_per_substream": args.channels // groups,
                 "instrument_dev_name": "i0",
                 "simulate": {
-                    "center_freq": 1284000000.0,
+                    "center_freq": CENTER_FREQ[args.band],
                     "sources": [
                         "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
                         "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
@@ -142,7 +152,7 @@ def generate(argv):
                 "beng_out_bits_per_sample": 8,
                 "instrument_dev_name": "i0",
                 "simulate": {
-                    "center_freq": 1284000000.0,
+                    "center_freq": CENTER_FREQ[args.band],
                     "sources": [
                         "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
                         "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
@@ -168,6 +178,18 @@ def generate(argv):
             "output_channels": [0, args.channels],
             "store": "ram"
         }
+
+    if args.image != 'none':
+        config["outputs"]["continuum_image"] = {
+            "type": "sdp.continuum_image",
+            "src_streams": ["sdp_l1_flags_continuum" if args.channels > 1024 else "sdp_l1_flags"]
+        }
+    if args.image == 'spectral':
+        config["outputs"]["spectral_image"] = {
+            "type": "sdp.spectral_image",
+            "src_streams": ["sdp_l1_flags"]
+        }
+
     if args.develop:
         config["config"]["develop"] = True
 
