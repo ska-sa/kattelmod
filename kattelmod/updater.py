@@ -60,7 +60,7 @@ class PeriodicUpdater:
                 update_time = after_update - timestamp
                 remaining_time = self.period - update_time
                 if remaining_time < 0:
-                    logger.warn("Update thread is struggling: updates take "
+                    logger.warn("Update task is struggling: updates take "
                                 "%g seconds but repeat every %g seconds" %
                                 (update_time, self.period))
                 self._check_and_wake()
