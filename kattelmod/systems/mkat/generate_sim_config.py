@@ -59,7 +59,6 @@ def generate(argv):
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
     parser.add_argument('--develop', action='store_true')
     parser.add_argument('--image', choices=['none', 'continuum', 'spectral'], default='none')
-    parser.add_argument('--spectral-image', action='store_true')
     parser.add_argument('--band', type=str.upper, choices=['L', 'UHF'], default='L')
     parser.add_argument('--beamformer', choices=['none', 'engineering', 'ptuse'],
                         default='none')
