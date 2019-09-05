@@ -13,5 +13,5 @@ pyephem                   # via katpoint
 redis                     # via katsdptelstate
 six                       # via singledispatch, fakeredis
 
-katpoint @ git+https://git@github.com/ska-sa/katpoint
-katsdptelstate @ git+https://git@github.com/ska-sa/katsdptelstate
+katpoint @ git+https://github.com/ska-sa/katpoint
+katsdptelstate @ git+https://github.com/ska-sa/katsdptelstate
