@@ -4,7 +4,6 @@ certifi                   # via tornado
 decorator                 # via aiokatcp
 fakeredis                 # via katsdptelstate
 future                    # via katpoint
-ipaddress                 # via katsdptelstate
 msgpack                   # via katsdptelstate
 netifaces                 # via katsdptelstate
 numpy
