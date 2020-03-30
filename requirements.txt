@@ -1,6 +1,5 @@
 aiokatcp
 async-timeout
-backports-abc             # via tornado
 certifi                   # via tornado
 decorator                 # via aiokatcp
 fakeredis                 # via katsdptelstate
@@ -11,7 +10,7 @@ netifaces                 # via katsdptelstate
 numpy
 pyephem                   # via katpoint
 redis                     # via katsdptelstate
-six                       # via singledispatch, fakeredis
+six                       # via fakeredis
 
 katpoint @ git+https://github.com/ska-sa/katpoint
 katsdptelstate @ git+https://github.com/ska-sa/katsdptelstate
