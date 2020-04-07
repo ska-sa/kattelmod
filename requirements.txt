@@ -1,15 +1,14 @@
 aiokatcp
 async-timeout
-certifi                   # via tornado
 decorator                 # via aiokatcp
-fakeredis                 # via katsdptelstate
+ephem                     # via pyephem
 future                    # via katpoint
 msgpack                   # via katsdptelstate
 netifaces                 # via katsdptelstate
 numpy
 pyephem                   # via katpoint
 redis                     # via katsdptelstate
-six                       # via fakeredis
+six                       # via katsdptelstate
 
 katpoint @ git+https://github.com/ska-sa/katpoint
 katsdptelstate @ git+https://github.com/ska-sa/katsdptelstate
