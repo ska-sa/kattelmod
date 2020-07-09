@@ -21,6 +21,7 @@ names = ${ants}
 [sub]
 product = "kattelmod"
 dump_rate = ${dump_rate}
+band = "${band}"
 pool_resources = "${ants},cbf_1,sdp_1"
 
 [sdp]
@@ -48,6 +49,10 @@ BANDWIDTH = {
 CENTER_FREQ = {
     'L': 1284000000.0,
     'UHF': 816000000.0
+}
+BAND_NAME = {
+    'L': 'l',
+    'UHF': 'u'
 }
 
 
@@ -77,47 +82,39 @@ def generate(argv):
     # completely).
     continuum_factor = max(2, args.channels // 1024)
     config = {
-        "version": "2.4",
-        "inputs": {
-            "i0_antenna_channelised_voltage": {
-                "type": "cbf.antenna_channelised_voltage",
-                "url": "spead://239.102.1.0+{}:7148".format(groups - 1),
-                "n_chans": args.channels,
-                "n_pols": 2,
-                "adc_sample_rate": bandwidth * 2,
-                "bandwidth": bandwidth,
-                "n_samples_between_spectra": 2 * args.channels,
-                "instrument_dev_name": "i0"
-            },
-            "i0_baseline_correlation_products": {
-                "type": "cbf.baseline_correlation_products",
-                "url": "spead://239.102.2.0+{}:7148".format(groups - 1),
-                "src_streams": ["i0_antenna_channelised_voltage"],
-                "int_time": cbf_int_time,
-                "n_bls": cbf_ants * (cbf_ants + 1) * 2,
-                "xeng_out_bits_per_sample": 32,
-                "n_chans_per_substream": args.channels // groups,
-                "instrument_dev_name": "i0",
-                "simulate": {
-                    "center_freq": CENTER_FREQ[args.band],
-                    "sources": [
-                        "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
-                        "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
-                        "3C286, radec, 13:31:08.29, +30:30:33.0,(800.0 43200.0 0.956 0.584 -0.1644)"
-                    ]
-                }
-            }
+        "version": "3.0",
+        "simulation": {
+            "sources": [
+                "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
+                "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
+                "3C286, radec, 13:31:08.29, +30:30:33.0,(800.0 43200.0 0.956 0.584 -0.1644)"
+            ]
         },
         "outputs": {
+            "antenna_channelised_voltage": {
+                "type": "sim.cbf.antenna_channelised_voltage",
+                "n_chans": args.channels,
+                "band": BAND_NAME[args.band],
+                "adc_sample_rate": bandwidth * 2,
+                "bandwidth": bandwidth,
+                "centre_frequency": CENTER_FREQ[args.band]
+            },
+            "baseline_correlation_products": {
+                "type": "sim.cbf.baseline_correlation_products",
+                "n_endpoints": groups,
+                "src_streams": ["antenna_channelised_voltage"],
+                "int_time": cbf_int_time,
+                "n_chans_per_substream": args.channels // groups
+            },
             "sdp_l0": {
                 "type": "sdp.vis",
-                "src_streams": ["i0_baseline_correlation_products"],
+                "src_streams": ["baseline_correlation_products"],
                 "continuum_factor": 1,
                 "archive": True
             },
             "sdp_l0_continuum": {
                 "type": "sdp.vis",
-                "src_streams": ["i0_baseline_correlation_products"],
+                "src_streams": ["baseline_correlation_products"],
                 "continuum_factor": continuum_factor,
                 "archive": True
             },
@@ -127,52 +124,40 @@ def generate(argv):
             },
             "sdp_l1_flags": {
                 "type": "sdp.flags",
-                "src_streams": ["sdp_l0"],
-                "calibration": ["cal"],
+                "src_streams": ["sdp_l0", "cal"],
                 "archive": True
             },
             "sdp_l1_flags_continuum": {
                 "type": "sdp.flags",
-                "src_streams": ["sdp_l0_continuum"],
-                "calibration": ["cal"],
+                "src_streams": ["sdp_l0_continuum", "cal"],
                 "archive": True
             }
         },
         "config": {}
     }
     if args.beamformer != 'none':
-        for (pol, addr) in [('x', '239.102.3.0'), ('y', '239.102.4.0')]:
-            config["inputs"]["i0_tied_array_channelised_voltage_0" + pol] = {
-                "type": "cbf.tied_array_channelised_voltage",
-                "url": "spead://{}+{}:7148".format(addr, groups - 1),
-                "src_streams": ["i0_antenna_channelised_voltage"],
+        for pol in ['x', 'y']:
+            config["outputs"]["tied_array_channelised_voltage_0" + pol] = {
+                "type": "sim.cbf.tied_array_channelised_voltage",
+                "n_endpoints": groups,
+                "src_streams": ["antenna_channelised_voltage"],
                 "spectra_per_heap": 256,
                 "n_chans_per_substream": args.channels // groups,
-                "beng_out_bits_per_sample": 8,
-                "instrument_dev_name": "i0",
-                "simulate": {
-                    "center_freq": CENTER_FREQ[args.band],
-                    "sources": [
-                        "PKS 1934-63, radec, 19:39:25.03, -63:42:45.7, (200.0 12000.0 -11.11 7.777 -1.231)",
-                        "PKS 0408-65, radec, 4:08:20.38, -65:45:09.1, (800.0 8400.0 -3.708 3.807 -0.7202)",
-                        "3C286, radec, 13:31:08.29, +30:30:33.0,(800.0 43200.0 0.956 0.584 -0.1644)"
-                    ]
-                }
             }
     if args.beamformer == 'ptuse':
         config["outputs"]["sdp_beamformer"] = {
             "type": "sdp.beamformer",
             "src_streams": [
-                "i0_tied_array_channelised_voltage_0x",
-                "i0_tied_array_channelised_voltage_0y"
+                "tied_array_channelised_voltage_0x",
+                "tied_array_channelised_voltage_0y"
             ]
         }
     elif args.beamformer == 'engineering':
         config["outputs"]["sdp_beamformer"] = {
             "type": "sdp.beamformer_engineering",
             "src_streams": [
-                "i0_tied_array_channelised_voltage_0x",
-                "i0_tied_array_channelised_voltage_0y"
+                "tied_array_channelised_voltage_0x",
+                "tied_array_channelised_voltage_0y"
             ],
             "output_channels": [0, args.channels],
             "store": "ram"
@@ -201,6 +186,7 @@ def generate(argv):
         mc=MASTER_MAP[args.master],
         dump_rate=args.dump_rate,
         channels=args.channels,
+        band=BAND_NAME[args.band],
         config=config_str)
     return content
 

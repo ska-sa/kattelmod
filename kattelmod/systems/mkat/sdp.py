@@ -62,23 +62,16 @@ class ScienceDataProcessor(KATCPComponent):
         if not isinstance(config, dict):
             config = json.loads(config)
         # Insert the antenna list, antenna positions and clock information
-        for input_ in list(config['inputs'].values()):
-            if input_['type'] == 'cbf.antenna_channelised_voltage':
-                input_['antennas'] = [receptor.name for receptor in receptors]
-            if input_['type'] in ['cbf.baseline_correlation_products',
-                                  'cbf.tied_array_channelised_voltage']:
-                simulate = input_.get('simulate', False)
-                if simulate is True:
-                    simulate = input_['simulate'] = {}  # Upgrade to 1.1 API
-                if isinstance(simulate, dict):
-                    simulate['antennas'] = [receptor.description for receptor in receptors]
-                    if get_clock().rate != 1.0:
-                        simulate['clock_ratio'] = get_clock().rate
-                    if start_time is not None:
-                        simulate['start_time'] = start_time
-        # Insert the dump rate
+        config.setdefault('simulation', {})
+        if get_clock().rate != 1.0:
+            config['simulation']['clock_ratio'] = get_clock().rate
+        if start_time is not None:
+            config['simulation']['start_time'] = start_time
         for output in list(config['outputs'].values()):
-            if output['type'] in ['sdp.l0', 'sdp.vis'] and 'output_int_time' not in output:
+            if output['type'] == 'sim.cbf.antenna_channelised_voltage':
+                output['antennas'] = [receptor.description for receptor in receptors]
+            # Insert the dump rate
+            if output['type'] == 'sdp.vis' and 'output_int_time' not in output:
                 output['output_int_time'] = 1.0 / sub.dump_rate
         try:
             with real_timeout(300):
