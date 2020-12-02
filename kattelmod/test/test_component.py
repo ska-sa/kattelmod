@@ -76,7 +76,7 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
     def test_setattr(self):
         """Basic test that setting an attribute updates telstate"""
         self.assertEqual(self.telstate.get('dummy_speed'), 88.0)
-        self.assertTrue(self.telstate.is_immutable('dummy_speed'))
+        self.assertEqual(self.telstate.key_type('dummy_speed'), katsdptelstate.KeyType.IMMUTABLE)
         # Initial value is pushed into the past
         self.assertEqual(self.telstate.get_range('dummy_temperature', st=0),
                          [(451.0, self.START_TIME - 300.0)])

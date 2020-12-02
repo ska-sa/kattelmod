@@ -15,6 +15,7 @@ class PeriodicUpdater:
     After each update, it can also check conditions and signal futures if
     they are true.
     """
+
     def __init__(self, components: Sequence[TelstateUpdatingComponent],
                  period: float = 0.1) -> None:
         # TODO: the type hint is for TelstateUpdatingComponent, but it could
@@ -63,6 +64,11 @@ class PeriodicUpdater:
                     logger.warn("Update task is struggling: updates take "
                                 "%g seconds but repeat every %g seconds" %
                                 (update_time, self.period))
+                    # asyncio.sleep behaviour differs between Python versions
+                    # when the sleep time is negative. From 3.7 onwards it
+                    # uses the same fast path as a negative sleep. To make
+                    # behaviour consistent, force it to zero.
+                    remaining_time = 0.0
                 self._check_and_wake()
                 await asyncio.sleep(remaining_time)
         except Exception:

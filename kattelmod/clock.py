@@ -70,7 +70,7 @@ class Clock:
 
 
 class _WarpClock(Clock):
-    """Implementation :class:`Clock` for zero rate.
+    """Implementation of :class:`Clock` for zero rate.
 
     It is made into a separate class because most of the implementation
     details are somewhat different.
@@ -109,6 +109,7 @@ class WarpSelector(BaseSelector):
     It wraps an existing selector so that it can still determine when events
     have occurred. If no selector is given, a default selector is created.
     """
+
     def __init__(self, clock: Clock, wrapped: BaseSelector = None) -> None:
         self.wrapped = wrapped if wrapped is not None else DefaultSelector()
         self.clock = clock
