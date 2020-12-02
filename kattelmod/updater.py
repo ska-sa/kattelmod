@@ -15,6 +15,7 @@ class PeriodicUpdater:
     After each update, it can also check conditions and signal futures if
     they are true.
     """
+
     def __init__(self, components: Sequence[TelstateUpdatingComponent],
                  period: float = 0.1) -> None:
         # TODO: the type hint is for TelstateUpdatingComponent, but it could

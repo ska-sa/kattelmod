@@ -120,7 +120,8 @@ class TestWarpEventLoop(unittest.TestCase):
 
 
 class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
-    """Policy used in other tests to set up a warp event loop for the test"""
+    """Policy used in other tests to set up a warp event loop for the test."""
+
     def __init__(self, original: asyncio.AbstractEventLoopPolicy,
                  rate: float, start_time: float) -> None:
         self.original = original
