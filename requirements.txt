@@ -1,8 +1,10 @@
 aiokatcp
+aioredis                  # via katsdptelstate[aio]
 async-timeout
 decorator                 # via aiokatcp
 ephem                     # via pyephem
 future                    # via katpoint
+hiredis                   # via aioredis
 msgpack                   # via katsdptelstate
 netifaces                 # via katsdptelstate
 numpy
