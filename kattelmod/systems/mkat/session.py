@@ -27,12 +27,12 @@ class CaptureSession(BaseCaptureSession):
 
         if not endpoint:
             return None
-        elif endpoint != 'fake':
+        elif endpoint == 'fake':
+            return TelescopeState()
+        else:
             client = await aioredis.create_redis_pool(f'redis://{endpoint}')
             backend = katsdptelstate.aio.redis.RedisBackend(client)
             return TelescopeState(backend)
-        else:
-            return TelescopeState()
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN
