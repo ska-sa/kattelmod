@@ -1,3 +1,4 @@
+from collections import deque
 import logging
 from importlib import import_module
 import inspect
@@ -99,9 +100,16 @@ class Component:
 
 
 class TelstateUpdatingComponent(Component):
-    """Component that will update telstate when its attributes are set."""
+    """Component that will update telstate when its attributes are set.
+
+    The updates to telstate are scheduled as asyncio tasks. Use
+    :meth:`_flush` to ensure that they have been successfully sent to
+    telstate.
+    """
+
     def __init__(self) -> None:
         self._telstate = None
+        self._update_queue = deque()
         self._update_time = 0.0
         self._elapsed_time = 0.0
         self._last_update = 0.0
@@ -123,8 +131,11 @@ class TelstateUpdatingComponent(Component):
                 ts -= 300.0
             logger.debug("telstate {} {} {}"
                          .format(ts, sensor_name, _sensor_transform(value)))
-            self._telstate.add(sensor_name, _sensor_transform(value),
-                               ts=ts, immutable=attr_name in self._immutables)
+            update_task = asyncio.get_event_loop().create_task(
+                self._telstate.add(sensor_name, _sensor_transform(value),
+                                   ts=ts, immutable=attr_name in self._immutables)
+            )
+            self._update_queue.append(update_task)
 
     def _update(self, timestamp: float) -> None:
         self._elapsed_time = timestamp - self._last_update \
@@ -133,6 +144,12 @@ class TelstateUpdatingComponent(Component):
         if timestamp - self._last_rate_limited_send > SENSOR_MIN_PERIOD:
             self._last_rate_limited_send = timestamp
 
+    async def _flush(self) -> None:
+        """Wait for asynchronous telstate updates to complete."""
+        while self._update_queue:
+            await self._update_queue[0]
+            self._update_queue.popleft()
+
     async def _start(self) -> None:
         if self._started:
             return
@@ -140,6 +157,7 @@ class TelstateUpdatingComponent(Component):
         # Reassign values to object attributes to trigger output to telstate
         for name in self._sensors:
             setattr(self, name, getattr(self, name))
+        await self._flush()
 
 
 class KATCPComponent(Component):

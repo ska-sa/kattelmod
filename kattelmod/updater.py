@@ -19,7 +19,7 @@ class PeriodicUpdater:
     def __init__(self, components: Sequence[TelstateUpdatingComponent],
                  period: float = 0.1) -> None:
         # TODO: the type hint is for TelstateUpdatingComponent, but it could
-        # be replaced by a mypy Protocol requiring _update.
+        # be replaced by a mypy Protocol requiring _update and _flush.
         self.components = components
         self.period = period
         self._task = None        # type: Optional[asyncio.Task]
@@ -48,15 +48,20 @@ class PeriodicUpdater:
         self._checks = new_checks
 
     async def _run(self) -> None:
+        async def update_component(component, timestamp):
+            # Force all sensor updates to happen at the same timestamp
+            component._update_time = timestamp
+            component._update(timestamp)
+            component._update_time = 0.0
+            await component._flush()
+
         clock = get_clock()
         try:
             while self._active:
                 timestamp = clock.time()
-                for component in self.components:
-                    # Force all sensor updates to happen at the same timestamp
-                    component._update_time = timestamp
-                    component._update(timestamp)
-                    component._update_time = 0.0
+                await asyncio.gather(
+                    *(update_component(component, timestamp)
+                      for component in self.components))
                 after_update = clock.time()
                 update_time = after_update - timestamp
                 remaining_time = self.period - update_time

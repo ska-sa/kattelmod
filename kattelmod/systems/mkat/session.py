@@ -1,8 +1,10 @@
 import argparse
 from typing import Any
 
+import aioredis
 from katpoint import Timestamp
-from katsdptelstate import TelescopeState
+from katsdptelstate.aio import TelescopeState
+import katsdptelstate.aio.redis
 
 from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
 
@@ -22,8 +24,15 @@ class CaptureSession(BaseCaptureSession):
             endpoint = await self.sdp.get_telstate()
         else:
             endpoint = ''
-        return None if not endpoint else TelescopeState(endpoint) \
-            if endpoint != 'fake' else TelescopeState()
+
+        if not endpoint:
+            return None
+        elif endpoint == 'fake':
+            return TelescopeState()
+        else:
+            client = await aioredis.create_redis_pool(f'redis://{endpoint}')
+            backend = katsdptelstate.aio.redis.RedisBackend(client)
+            return TelescopeState(backend)
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN
@@ -44,7 +53,7 @@ class CaptureSession(BaseCaptureSession):
         if 'sdp' in self:
             await self.sdp.capture_init()
             try:
-                capture_block_id = self._telstate['sdp_capture_block_id']
+                capture_block_id = await self._telstate['sdp_capture_block_id']
             except KeyError:
                 self.logger.warning('No sdp_capture_block_id in telstate - '
                                     'assuming simulated environment')
@@ -69,5 +78,8 @@ class CaptureSession(BaseCaptureSession):
             await self.sdp.capture_done()
 
     async def product_deconfigure(self) -> None:
+        if self._telstate:
+            self._telstate.backend.close()
+            await self._telstate.backend.wait_closed()
         if 'sdp' in self:
             await self.sdp.product_deconfigure()

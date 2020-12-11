@@ -76,12 +76,7 @@ class TestPeriodicUpdater(WarpEventLoopTestCase):
             async with PeriodicUpdater([comp1, comp2], period=1.5):
                 await asyncio.sleep(6.5)
         self.assertRegex(cm.output[0], 'Update task is struggling')
-        # The last two elements are surprising, since the updater should have
-        # been stopped at 1234567896.5. It's a consequence of quirks in the
-        # order asyncio runs callbacks.
-        expected = [
-            1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0,
-            1234567898.0, 1234567900.0]
+        expected = [1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0]
         # The timestamp given for the update is unaffected by the time spent
         # inside the updates, so both components should see the same
         # timestamps.

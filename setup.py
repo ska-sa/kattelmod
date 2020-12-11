@@ -24,5 +24,6 @@ setup(name="kattelmod",
       test_suite="nose.collector",
       setup_requires=['katversion'],
       use_katversion=True,
+      python_requires='>=3.6',     # Required by katsdptelstate[aio]
       tests_require=["nose", "asynctest"],
-      install_requires=["numpy", "aiokatcp", "async-timeout", "katpoint", "katsdptelstate"])
+      install_requires=["numpy", "aiokatcp", "async-timeout", "katpoint", "katsdptelstate[aio]"])

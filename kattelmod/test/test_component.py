@@ -2,7 +2,7 @@ import asyncio
 import asynctest
 from unittest import mock
 
-import katsdptelstate
+import katsdptelstate.aio
 
 import kattelmod
 from kattelmod.component import Component, TelstateUpdatingComponent, KATCPComponent, MultiMethod
@@ -64,7 +64,7 @@ class TestComponent(WarpEventLoopTestCase):
 
 class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
     async def setUp(self):
-        self.telstate = katsdptelstate.TelescopeState()
+        self.telstate = katsdptelstate.aio.TelescopeState()
         self.comp = DummyTelstateUpdatingComponent(88.0)
         self.comp._name = 'dummy'
         self.comp._telstate = self.telstate
@@ -73,19 +73,22 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
         # yet.
         self.comp._update(self.START_TIME)
 
-    def test_setattr(self):
+    async def test_setattr(self):
         """Basic test that setting an attribute updates telstate"""
-        self.assertEqual(self.telstate.get('dummy_speed'), 88.0)
-        self.assertEqual(self.telstate.key_type('dummy_speed'), katsdptelstate.KeyType.IMMUTABLE)
+        await self.comp._flush()
+        self.assertEqual(await self.telstate.get('dummy_speed'), 88.0)
+        self.assertEqual(await self.telstate.key_type('dummy_speed'),
+                         katsdptelstate.KeyType.IMMUTABLE)
         # Initial value is pushed into the past
-        self.assertEqual(self.telstate.get_range('dummy_temperature', st=0),
+        self.assertEqual(await self.telstate.get_range('dummy_temperature', st=0),
                          [(451.0, self.START_TIME - 300.0)])
         get_clock().advance(5)
         self.comp.temperature = 100.0
-        self.assertEqual(self.telstate.get_range('dummy_temperature', st=0),
+        await self.comp._flush()
+        self.assertEqual(await self.telstate.get_range('dummy_temperature', st=0),
                          [(451.0, self.START_TIME - 300.0), (100.0, self.START_TIME + 5.0)])
 
-    def test_updates(self):
+    async def test_updates(self):
         """Test interaction with _update and rate limiting.
 
         Normally the attribute setting would be done in the _update callback,
@@ -97,8 +100,9 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
             self.comp._update(get_clock().time())
             self.comp.temperature += 1.0
             self.comp.pos_foo += 1.0
+        await self.comp._flush()
         self.assertEqual(
-            self.telstate.get_range('dummy_temperature', st=0),
+            await self.telstate.get_range('dummy_temperature', st=0),
             [(451.0, self.START_TIME - 300.0),
              (452.0, self.START_TIME + 0.25),
              (453.0, self.START_TIME + 0.5),
@@ -107,7 +111,7 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
              (456.0, self.START_TIME + 1.25),
              (457.0, self.START_TIME + 1.5)])
         self.assertEqual(
-            self.telstate.get_range('dummy_pos_foo', st=0),
+            await self.telstate.get_range('dummy_pos_foo', st=0),
             [(1000.0, self.START_TIME - 300.0),
              (1002.0, self.START_TIME + 0.5),
              (1004.0, self.START_TIME + 1.0),
