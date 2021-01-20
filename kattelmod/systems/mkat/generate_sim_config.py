@@ -171,7 +171,7 @@ def generate(argv):
     if args.image == 'spectral':
         config["outputs"]["spectral_image"] = {
             "type": "sdp.spectral_image",
-            "src_streams": ["sdp_l1_flags"]
+            "src_streams": ["sdp_l1_flags", "continuum_image"]
         }
 
     if args.develop:
