@@ -1,16 +1,8 @@
+-c https://raw.githubusercontent.com/ska-sa/katsdpdockerbase/master/docker-base-build/base-requirements.txt
+
 aiokatcp
-aioredis                  # via katsdptelstate[aio]
 async-timeout
-decorator                 # via aiokatcp
-ephem                     # via pyephem
-future                    # via katpoint
-hiredis                   # via aioredis
-msgpack                   # via katsdptelstate
-netifaces                 # via katsdptelstate
 numpy
-pyephem                   # via katpoint
-redis                     # via katsdptelstate
-six                       # via katsdptelstate
 
 katpoint @ git+https://github.com/ska-sa/katpoint
-katsdptelstate @ git+https://github.com/ska-sa/katsdptelstate
+katsdptelstate[aio] @ git+https://github.com/ska-sa/katsdptelstate
