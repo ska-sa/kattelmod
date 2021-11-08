@@ -1,7 +1,6 @@
 import argparse
 from typing import Any
 
-import aioredis
 from katpoint import Timestamp
 from katsdptelstate.aio import TelescopeState
 import katsdptelstate.aio.redis
@@ -30,8 +29,7 @@ class CaptureSession(BaseCaptureSession):
         elif endpoint == 'fake':
             return TelescopeState()
         else:
-            client = await aioredis.create_redis_pool(f'redis://{endpoint}')
-            backend = katsdptelstate.aio.redis.RedisBackend(client)
+            backend = await katsdptelstate.aio.redis.RedisBackend.from_url(f'redis://{endpoint}')
             return TelescopeState(backend)
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
