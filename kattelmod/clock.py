@@ -186,4 +186,4 @@ def real_timeout(timeout: Optional[float], *,
             timeout /= loop.clock.rate
         except (AttributeError, ZeroDivisionError):
             pass
-    return async_timeout.timeout(timeout, loop=loop)
+    return async_timeout.timeout(timeout)
