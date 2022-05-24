@@ -74,7 +74,7 @@ class ScienceDataProcessor(KATCPComponent):
             if output['type'] == 'sdp.vis' and 'output_int_time' not in output:
                 output['output_int_time'] = 1.0 / sub.dump_rate
         try:
-            with real_timeout(300):
+            async with real_timeout(300):
                 msg, _ = await self._client.request(
                     'product-configure', subarray_product, json.dumps(config))
         except aiokatcp.FailReply as exc:
@@ -84,7 +84,7 @@ class ScienceDataProcessor(KATCPComponent):
 
     async def product_deconfigure(self) -> None:
         self._validate()
-        with real_timeout(300):
+        async with real_timeout(300):
             await self._client.request('product-deconfigure', self.subarray_product)
 
     async def get_telstate(self) -> str:
@@ -98,10 +98,10 @@ class ScienceDataProcessor(KATCPComponent):
 
     async def capture_init(self) -> None:
         self._validate()
-        with real_timeout(10):
+        async with real_timeout(10):
             await self._client.request('capture-init', self.subarray_product)
 
     async def capture_done(self) -> None:
         self._validate()
-        with real_timeout(300):
+        async with real_timeout(300):
             await self._client.request('capture-done', self.subarray_product)

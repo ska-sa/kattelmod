@@ -175,7 +175,7 @@ class KATCPComponent(Component):
             return
         await super()._start()
         try:
-            with real_timeout(5):
+            async with real_timeout(5):
                 self._client = await aiokatcp.Client.connect(self._endpoint.host, self._endpoint.port)
         except asyncio.TimeoutError:
             raise asyncio.TimeoutError("Timed out trying to connect '{}' to client '{}'"

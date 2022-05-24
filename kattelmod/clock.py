@@ -172,18 +172,18 @@ def get_clock() -> Clock:
     return loop.clock
 
 
-def real_timeout(timeout: Optional[float], *,
-                 loop: Optional[asyncio.AbstractEventLoop] = None) -> async_timeout.timeout:
+# The return type is quoted so that it won't break at runtime with
+# async-timeout versions prior to 4.0 which introduced the class.
+def real_timeout(timeout: Optional[float]) -> "async_timeout.Timeout":
     """Wrapper for async_timeout that tries to count in real time.
 
     If the event loop has a rate of 0 (dry-run) it doesn't do anything special,
     but otherwise it scales the timeout appropriately.
     """
     if timeout is not None:
-        if loop is None:
-            loop = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
         try:
             timeout /= loop.clock.rate
         except (AttributeError, ZeroDivisionError):
             pass
-    return async_timeout.timeout(timeout, loop=loop)
+    return async_timeout.timeout(timeout)
