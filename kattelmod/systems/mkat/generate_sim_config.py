@@ -31,15 +31,19 @@ config = ${config}
 
 # Roughly based on the hand-coded files with various numbers of antennas, but
 # fairly arbitrary.
-ANTENNA_ORDER = [62, 63, 0, 2, 4, 6, 8, 11, 13, 15, 17, 19, 22, 30, 39, 56,
-                 1, 3, 5, 7, 10, 12, 14, 18, 20, 21, 24, 25, 31, 34, 36, 42,
-                 49, 57, 58, 59, 60, 61, 9, 16, 23, 26, 27, 28, 29, 32, 33, 35,
-                 37, 38, 40, 41, 43, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55]
-assert sorted(ANTENNA_ORDER) == list(range(64))
+MKAT_ANTENNA_ORDER = [62, 63, 0, 2, 4, 6, 8, 11, 13, 15, 17, 19, 22, 30, 39, 56,
+                      1, 3, 5, 7, 10, 12, 14, 18, 20, 21, 24, 25, 31, 34, 36, 42,
+                      49, 57, 58, 59, 60, 61, 9, 16, 23, 26, 27, 28, 29, 32, 33, 35,
+                      37, 38, 40, 41, 43, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 55]
+
+SKA_ANTENNA_ORDER = [17, 18, 20, 23, 24, 26, 31, 34, 60, 105, 107,
+                     110, 114, 115, 116, 117, 118, 119, 121]
+
+assert sorted(MKAT_ANTENNA_ORDER) == list(range(64))
 MASTER_MAP = {
     'site': 'mc1.sdp.mkat.karoo.kat.ac.za',
     'rts': 'sdprts.sdp.mkat-rts.karoo.kat.ac.za',
-    'lab': 'lab1.sdp.kat.ac.za',
+    'lab': 'lab5.sdp.kat.ac.za',
     'localhost': 'localhost'
 }
 BANDWIDTH = {
@@ -58,7 +62,8 @@ BAND_NAME = {
 
 def generate(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--antennas', type=int, required=True)
+    parser.add_argument('-a', '--mkat_antennas', type=int, required=True)
+    parser.add_argument('-s', '--ska_antennas', type=int, default=0)
     parser.add_argument('-r', '--dump-rate', type=float, default=0.25)
     parser.add_argument('-c', '--channels', type=int, choices=[1024, 4096, 32768], default=4096)
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
@@ -69,8 +74,9 @@ def generate(argv):
                         default='none')
     args = parser.parse_args(argv)
 
+    nants = args.mkat_antennas + args.ska_antennas
     cbf_ants = 4
-    while cbf_ants < args.antennas:
+    while cbf_ants < nants:
         cbf_ants *= 2
     groups = 4 * cbf_ants
     bandwidth = BANDWIDTH[args.band]
@@ -181,8 +187,11 @@ def generate(argv):
     # Also need to indent the whole thing, to stop the final } from
     # being in the left-most column.
     config_str = config_str.replace('\n', '\n    ')
+    mkat_ants = ['m{:03}'.format(ant) for ant in sorted(MKAT_ANTENNA_ORDER[:args.mkat_antennas])]
+    ska_ants = ['s{:04}'.format(ant) for ant in sorted(SKA_ANTENNA_ORDER[:args.ska_antennas])]
+
     content = TEMPLATE.substitute(
-        ants=','.join('m{:03}'.format(ant) for ant in sorted(ANTENNA_ORDER[:args.antennas])),
+        ants=','.join(mkat_ants + ska_ants),
         mc=MASTER_MAP[args.master],
         dump_rate=args.dump_rate,
         channels=args.channels,
