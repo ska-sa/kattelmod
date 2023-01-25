@@ -67,6 +67,7 @@ def generate(argv):
     parser.add_argument('-r', '--dump-rate', type=float, default=0.25)
     parser.add_argument('-c', '--channels', type=int, choices=[1024, 4096, 32768], default=4096)
     parser.add_argument('-m', '--master', choices=list(MASTER_MAP.keys()), default='lab')
+    parser.add_argument('--nocal', action='store_true', default=False)
     parser.add_argument('--develop', action='store_true')
     parser.add_argument('--image', choices=['none', 'continuum', 'spectral'], default='none')
     parser.add_argument('--band', type=str.upper, choices=['L', 'UHF'], default='L')
@@ -118,29 +119,32 @@ def generate(argv):
                 "continuum_factor": 1,
                 "archive": True
             },
-            "sdp_l0_continuum": {
-                "type": "sdp.vis",
-                "src_streams": ["baseline_correlation_products"],
-                "continuum_factor": continuum_factor,
-                "archive": True
-            },
-            "cal": {
-                "type": "sdp.cal",
-                "src_streams": ["sdp_l0"]
-            },
-            "sdp_l1_flags": {
-                "type": "sdp.flags",
-                "src_streams": ["sdp_l0", "cal"],
-                "archive": True
-            },
-            "sdp_l1_flags_continuum": {
-                "type": "sdp.flags",
-                "src_streams": ["sdp_l0_continuum", "cal"],
-                "archive": True
-            }
         },
         "config": {}
     }
+
+    if not args.nocal:
+        config["outputs"]["cal"] = {
+            "type": "sdp.cal",
+            "src_streams": ["sdp_l0"]
+        }
+        config["outputs"]["sdp_l0_continuum"] = {
+            "type": "sdp.vis",
+            "src_streams": ["baseline_correlation_products"],
+            "continuum_factor": continuum_factor,
+            "archive": True
+        }
+        config["outputs"]["sdp_l1_flags"] = {
+            "type": "sdp.flags",
+            "src_streams": ["sdp_l0", "cal"],
+            "archive": True
+        }
+        config["outputs"]["sdp_l1_flags_continuum"] = {
+            "type": "sdp.flags",
+            "src_streams": ["sdp_l0_continuum", "cal"],
+            "archive": True
+        }
+
     if args.beamformer != 'none':
         for pol in ['x', 'y']:
             config["outputs"]["tied_array_channelised_voltage_0" + pol] = {
