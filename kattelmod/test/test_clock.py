@@ -7,7 +7,7 @@ from typing import Any, cast
 
 import asynctest
 
-from ..clock import Clock, WarpEventLoop
+from kattelmod.clock import Clock, WarpEventLoop
 import pytest
 
 
@@ -21,58 +21,58 @@ def _almost_equal(a, b):
     return a == pytest.approx(b, abs=CLOCK_TOL)
 
 
-class TestRealClock(unittest.TestCase):
-    def test_realtime(self):
-        """Default-constructed clock should track real time"""
-        clock = Clock()
-        now1 = time.time()
-        now2 = clock.time()
-        now3 = time.time()
-        assert now1 <= now2
-        assert now2 <= now3
+def test_realtime_clock():
+    """Default-constructed clock should track real time"""
+    clock = Clock()
+    now1 = time.time()
+    now2 = clock.time()
+    now3 = time.time()
+    assert now1 <= now2
+    assert now2 <= now3
 
-        now1 = time.monotonic()
-        now2 = clock.monotonic()
-        now3 = time.monotonic()
-        assert now1 <= now2
-        assert now2 <= now3
-
-    def test_non_realtime(self):
-        """Clock with non-unit rate"""
-        clock = Clock(rate=0.25)
-        real_now1 = time.monotonic()
-        now1 = clock.time()
-        mono1 = clock.monotonic()
-        time.sleep(0.5)
-        real_now2 = time.monotonic()
-        now2 = clock.time()
-        mono2 = clock.monotonic()
-        real_elapsed = real_now2 - real_now1
-        assert _almost_equal((now2 - now1) * 0.25, real_elapsed)
-        assert _almost_equal((mono2 - mono1) * 0.25, real_elapsed)
-
-    def test_start_time(self):
-        """Clock with explicit start time"""
-        clock = Clock(1.0, START_TIME)
-        time1 = clock.time()
-        mono1 = clock.monotonic()
-        time.sleep(0.5)
-        time2 = clock.time()
-        mono2 = clock.monotonic()
-        assert _almost_equal(time1, START_TIME)
-        assert _almost_equal(time2, START_TIME + 0.5)
-        assert _almost_equal(mono2 - mono1, 0.5)
+    now1 = time.monotonic()
+    now2 = clock.monotonic()
+    now3 = time.monotonic()
+    assert now1 <= now2
+    assert now2 <= now3
 
 
-class TestWarpClock(unittest.TestCase):
-    def test(self):
-        clock = Clock(0.0, START_TIME)
-        monotonic_start = clock.monotonic()
-        assert clock.time() == START_TIME
+def test_non_realtime_clock():
+    """Clock with non-unit rate"""
+    clock = Clock(rate=0.25)
+    real_now1 = time.monotonic()
+    now1 = clock.time()
+    mono1 = clock.monotonic()
+    time.sleep(0.5)
+    real_now2 = time.monotonic()
+    now2 = clock.time()
+    mono2 = clock.monotonic()
+    real_elapsed = real_now2 - real_now1
+    assert _almost_equal((now2 - now1) * 0.25, real_elapsed)
+    assert _almost_equal((mono2 - mono1) * 0.25, real_elapsed)
 
-        clock.advance(3.5)
-        assert clock.time() == START_TIME + 3.5
-        assert clock.monotonic() == monotonic_start + 3.5
+
+def test_clock_with_start_time():
+    """Clock with explicit start time"""
+    clock = Clock(1.0, START_TIME)
+    time1 = clock.time()
+    mono1 = clock.monotonic()
+    time.sleep(0.5)
+    time2 = clock.time()
+    mono2 = clock.monotonic()
+    assert _almost_equal(time1, START_TIME)
+    assert _almost_equal(time2, START_TIME + 0.5)
+    assert _almost_equal(mono2 - mono1, 0.5)
+
+
+def test_warp_clock():
+    clock = Clock(0.0, START_TIME)
+    monotonic_start = clock.monotonic()
+    assert clock.time() == START_TIME
+
+    clock.advance(3.5)
+    assert clock.time() == START_TIME + 3.5
+    assert clock.monotonic() == monotonic_start + 3.5
 
 
 def run_with_loop(func):
