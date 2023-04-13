@@ -1,4 +1,4 @@
-import unittest
+import contextlib
 import time
 import asyncio
 import functools
@@ -79,39 +79,48 @@ def run_with_loop(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         loop = WarpEventLoop(Clock(0.0, START_TIME))
-        args[0].addCleanup(loop.close)
-        loop.run_until_complete(func(*args, **kwargs))
+        try:
+            loop.run_until_complete(func(*args, **kwargs))
+        finally:
+            loop.close()
 
     return wrapper
 
 
-class TestWarpEventLoop(unittest.TestCase):
-    async def _periodic(self, period, repeats, events):
-        """Wake up periodically and record the time to `events`"""
-        for i in range(repeats):
-            await asyncio.sleep(period)
-            events.append(asyncio.get_event_loop().time())
-
-    @run_with_loop
-    async def test_sleep(self):
-        loop = asyncio.get_event_loop()
-        assert loop.time() == 0.0
-        events = []
-        await asyncio.gather(
-            self._periodic(5, 3, events),
-            self._periodic(4, 4, events))
-        assert events == [4, 5, 8, 10, 12, 15, 16]
-
-    @run_with_loop
-    async def test_socket(self):
-        loop = asyncio.get_event_loop()
-        rsock, wsock = socketpair()
-        self.addCleanup(rsock.close)
-        self.addCleanup(wsock.close)
-
+@contextlib.asynccontextmanager
+async def _wsock_reader():
+    rsock, wsock = socketpair()
+    try:
         reader, writer = await asyncio.open_connection(sock=rsock)
-        self.addCleanup(writer.close)
+        yield wsock, reader
+        writer.close()
+    finally:
+        wsock.close()
+        rsock.close()
 
+
+async def _record_periodic(period, repeats, events):
+    """Wake up periodically and record the time to `events`"""
+    for i in range(repeats):
+        await asyncio.sleep(period)
+        events.append(asyncio.get_event_loop().time())
+
+
+@run_with_loop
+async def test_warp_event_loop_sleep():
+    loop = asyncio.get_event_loop()
+    assert loop.time() == 0.0
+    events = []
+    await asyncio.gather(
+        _record_periodic(5, 3, events),
+        _record_periodic(4, 4, events))
+    assert events == [4, 5, 8, 10, 12, 15, 16]
+
+
+@run_with_loop
+async def test_warp_event_loop_socket():
+    loop = asyncio.get_event_loop()
+    async with _wsock_reader() as (wsock, reader):
         wsock.send(b'somedata')
         assert loop.time() == 0.0
         data = await asyncio.wait_for(reader.read(8), timeout=5)
