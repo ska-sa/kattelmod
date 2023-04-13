@@ -8,12 +8,17 @@ from typing import Any, cast
 import asynctest
 
 from ..clock import Clock, WarpEventLoop
+import pytest
 
 
 # Testing clocks is tricky because they change every time you look. This
 # is the maximum amount we allow the clock to advance while executing code.
 CLOCK_TOL = 0.05
 START_TIME = 1234567890.0
+
+
+def _almost_equal(a, b):
+    return a == pytest.approx(b, abs=CLOCK_TOL)
 
 
 class TestRealClock(unittest.TestCase):
@@ -23,14 +28,14 @@ class TestRealClock(unittest.TestCase):
         now1 = time.time()
         now2 = clock.time()
         now3 = time.time()
-        self.assertLessEqual(now1, now2)
-        self.assertLessEqual(now2, now3)
+        assert now1 <= now2
+        assert now2 <= now3
 
         now1 = time.monotonic()
         now2 = clock.monotonic()
         now3 = time.monotonic()
-        self.assertLessEqual(now1, now2)
-        self.assertLessEqual(now2, now3)
+        assert now1 <= now2
+        assert now2 <= now3
 
     def test_non_realtime(self):
         """Clock with non-unit rate"""
@@ -43,8 +48,8 @@ class TestRealClock(unittest.TestCase):
         now2 = clock.time()
         mono2 = clock.monotonic()
         real_elapsed = real_now2 - real_now1
-        self.assertAlmostEqual((now2 - now1) * 0.25, real_elapsed, delta=CLOCK_TOL)
-        self.assertAlmostEqual((mono2 - mono1) * 0.25, real_elapsed, delta=CLOCK_TOL)
+        assert _almost_equal((now2 - now1) * 0.25, real_elapsed)
+        assert _almost_equal((mono2 - mono1) * 0.25, real_elapsed)
 
     def test_start_time(self):
         """Clock with explicit start time"""
@@ -54,20 +59,20 @@ class TestRealClock(unittest.TestCase):
         time.sleep(0.5)
         time2 = clock.time()
         mono2 = clock.monotonic()
-        self.assertAlmostEqual(time1, START_TIME, delta=CLOCK_TOL)
-        self.assertAlmostEqual(time2, START_TIME + 0.5, delta=CLOCK_TOL)
-        self.assertAlmostEqual(mono2 - mono1, 0.5, delta=CLOCK_TOL)
+        assert _almost_equal(time1, START_TIME)
+        assert _almost_equal(time2, START_TIME + 0.5)
+        assert _almost_equal(mono2 - mono1, 0.5)
 
 
 class TestWarpClock(unittest.TestCase):
     def test(self):
         clock = Clock(0.0, START_TIME)
         monotonic_start = clock.monotonic()
-        self.assertEqual(clock.time(), START_TIME)
+        assert clock.time() == START_TIME
 
         clock.advance(3.5)
-        self.assertEqual(clock.time(), START_TIME + 3.5)
-        self.assertEqual(clock.monotonic(), monotonic_start + 3.5)
+        assert clock.time() == START_TIME + 3.5
+        assert clock.monotonic() == monotonic_start + 3.5
 
 
 def run_with_loop(func):
@@ -90,12 +95,12 @@ class TestWarpEventLoop(unittest.TestCase):
     @run_with_loop
     async def test_sleep(self):
         loop = asyncio.get_event_loop()
-        self.assertEqual(loop.time(), 0.0)
+        assert loop.time() == 0.0
         events = []
         await asyncio.gather(
             self._periodic(5, 3, events),
             self._periodic(4, 4, events))
-        self.assertEqual(events, [4, 5, 8, 10, 12, 15, 16])
+        assert events == [4, 5, 8, 10, 12, 15, 16]
 
     @run_with_loop
     async def test_socket(self):
@@ -108,15 +113,15 @@ class TestWarpEventLoop(unittest.TestCase):
         self.addCleanup(writer.close)
 
         wsock.send(b'somedata')
-        self.assertEqual(loop.time(), 0.0)
+        assert loop.time() == 0.0
         data = await asyncio.wait_for(reader.read(8), timeout=5)
-        self.assertEqual(data, b'somedata')
+        assert data == b'somedata'
         # The data was there immediately, so time should not have advanced
-        self.assertEqual(loop.time(), 0.0)
+        assert loop.time() == 0.0
 
-        with self.assertRaises(asyncio.TimeoutError):
+        with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(reader.read(8), timeout=5)
-        self.assertEqual(loop.time(), 5.0)
+        assert loop.time() == 5.0
 
 
 class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):

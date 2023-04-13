@@ -8,6 +8,8 @@ import kattelmod
 from kattelmod.component import Component, TelstateUpdatingComponent, KATCPComponent, MultiMethod
 from kattelmod.clock import get_clock
 from kattelmod.test.test_clock import WarpEventLoopTestCase
+import re
+import pytest
 
 
 class DummyComponent(Component):
@@ -34,15 +36,13 @@ class TestComponent(WarpEventLoopTestCase):
         self.comp = DummyComponent(88.0)
 
     def test_type(self):
-        self.assertEqual(self.comp._type(), 'kattelmod.test.test_component.DummyComponent')
+        assert self.comp._type() == 'kattelmod.test.test_component.DummyComponent'
 
     def test_repr(self):
-        self.assertRegex(
-            repr(self.comp),
-            r"<kattelmod\.test\.test_component\.DummyComponent 'dummy' at .*>")
+        assert re.search(r"<kattelmod\.test\.test_component\.DummyComponent 'dummy' at .*>", repr(self.comp))
 
     def test_sensors(self):
-        self.assertEqual(self.comp._sensors, ['pressure', 'speed', 'temperature'])
+        assert self.comp._sensors == ['pressure', 'speed', 'temperature']
 
     async def test_dummy_methods(self):
         # Just tests that it exists and runs without crashing
@@ -57,9 +57,9 @@ class TestComponent(WarpEventLoopTestCase):
                         return_value=kattelmod.test.test_component):
             self.comp.temperature = 100.0
             fake = self.comp._fake()
-            self.assertEqual(fake.temperature, 100.0)
-            self.assertEqual(fake.pressure, 1000.0)
-            self.assertEqual(fake.speed, 88.0)
+            assert fake.temperature == 100.0
+            assert fake.pressure == 1000.0
+            assert fake.speed == 88.0
 
 
 class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
@@ -76,17 +76,17 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
     async def test_setattr(self):
         """Basic test that setting an attribute updates telstate"""
         await self.comp._flush()
-        self.assertEqual(await self.telstate.get('dummy_speed'), 88.0)
-        self.assertEqual(await self.telstate.key_type('dummy_speed'),
-                         katsdptelstate.KeyType.IMMUTABLE)
+        assert await self.telstate.get('dummy_speed') == 88.0
+        assert await self.telstate.key_type('dummy_speed') == \
+                         katsdptelstate.KeyType.IMMUTABLE
         # Initial value is pushed into the past
-        self.assertEqual(await self.telstate.get_range('dummy_temperature', st=0),
-                         [(451.0, self.START_TIME - 300.0)])
+        assert await self.telstate.get_range('dummy_temperature', st=0) == \
+                         [(451.0, self.START_TIME - 300.0)]
         get_clock().advance(5)
         self.comp.temperature = 100.0
         await self.comp._flush()
-        self.assertEqual(await self.telstate.get_range('dummy_temperature', st=0),
-                         [(451.0, self.START_TIME - 300.0), (100.0, self.START_TIME + 5.0)])
+        assert await self.telstate.get_range('dummy_temperature', st=0) == \
+                         [(451.0, self.START_TIME - 300.0), (100.0, self.START_TIME + 5.0)]
 
     async def test_updates(self):
         """Test interaction with _update and rate limiting.
@@ -101,24 +101,22 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
             self.comp.temperature += 1.0
             self.comp.pos_foo += 1.0
         await self.comp._flush()
-        self.assertEqual(
-            await self.telstate.get_range('dummy_temperature', st=0),
+        assert await self.telstate.get_range('dummy_temperature', st=0) == \
             [(451.0, self.START_TIME - 300.0),
              (452.0, self.START_TIME + 0.25),
              (453.0, self.START_TIME + 0.5),
              (454.0, self.START_TIME + 0.75),
              (455.0, self.START_TIME + 1.0),
              (456.0, self.START_TIME + 1.25),
-             (457.0, self.START_TIME + 1.5)])
-        self.assertEqual(
-            await self.telstate.get_range('dummy_pos_foo', st=0),
+             (457.0, self.START_TIME + 1.5)]
+        assert await self.telstate.get_range('dummy_pos_foo', st=0) == \
             [(1000.0, self.START_TIME - 300.0),
              (1002.0, self.START_TIME + 0.5),
              (1004.0, self.START_TIME + 1.0),
-             (1006.0, self.START_TIME + 1.5)])
+             (1006.0, self.START_TIME + 1.5)]
 
     def test_updatable(self):
-        self.assertTrue(self.comp._updatable)
+        assert self.comp._updatable
 
     async def test_start_twice(self):
         # Mostly just to get test coverage
@@ -140,16 +138,16 @@ class TestKATCPComponent(asynctest.ClockedTestCase):
         self.addCleanup(writer.close)
 
     def test_bad_endpoint(self):
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             KATCPComponent('invalid.com')
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             KATCPComponent('')
 
     async def test_connect_timeout(self):
         comp = KATCPComponent('{}:{}'.format(*self.endpoint))
         task = asyncio.ensure_future(comp._start())
         await self.advance(100)
-        with self.assertRaises(asyncio.TimeoutError):
+        with pytest.raises(asyncio.TimeoutError):
             await task
 
     async def _interact(self):
@@ -167,7 +165,7 @@ class TestKATCPComponent(asynctest.ClockedTestCase):
         await comp._start()
         await comp._start()      # Check that it's idempotent
         response = await comp._client.request('ping', 'hello')
-        self.assertEqual(response, ([b'hello'], []))
+        assert response == ([b'hello'], [])
         await comp._stop()
         await comp._stop()       # Check that it's idempotent
         await task
@@ -199,16 +197,16 @@ class TestMultiMethod(asynctest.TestCase):
 
     def test_sync(self):
         mm = MultiMethod([self.sync1, self.sync2], 'my_method', 'help')
-        self.assertIsNone(self.sync1.called_with)
-        self.assertIsNone(self.sync2.called_with)
+        assert self.sync1.called_with is None
+        assert self.sync2.called_with is None
         mm('a', 1, kw=2)
-        self.assertEqual(self.sync1.called_with, (('a', 1), {'kw': 2}))
-        self.assertEqual(self.sync2.called_with, (('a', 1), {'kw': 2}))
+        assert self.sync1.called_with == (('a', 1), {'kw': 2})
+        assert self.sync2.called_with == (('a', 1), {'kw': 2})
 
     async def test_async(self):
         mm = MultiMethod([self.async1, self.async2], 'my_method', 'help')
-        self.assertIsNone(self.async1.called_with)
-        self.assertIsNone(self.async2.called_with)
+        assert self.async1.called_with is None
+        assert self.async2.called_with is None
         await mm('a', 1, kw=2)
-        self.assertEqual(self.async1.called_with, (('a', 1), {'kw': 2}))
-        self.assertEqual(self.async2.called_with, (('a', 1), {'kw': 2}))
+        assert self.async1.called_with == (('a', 1), {'kw': 2})
+        assert self.async2.called_with == (('a', 1), {'kw': 2})

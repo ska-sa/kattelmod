@@ -20,4 +20,4 @@ class TestBasicTrack(unittest.TestCase):
         stdout, stderr = process.communicate()
         print(stdout)
         print(stderr)
-        self.assertEqual(process.returncode, 0)
+        assert process.returncode == 0
