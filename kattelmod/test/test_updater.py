@@ -7,7 +7,6 @@ from kattelmod.updater import PeriodicUpdater
 from kattelmod.component import TelstateUpdatingComponent
 from kattelmod.test.test_clock import WarpEventLoopTestCase
 import pytest
-import re
 
 
 class DummyComponent(TelstateUpdatingComponent):
@@ -32,15 +31,17 @@ class TestPeriodicUpdater(WarpEventLoopTestCase):
         await comp._stop()
 
     def _condition(self) -> Union[float, bool]:
-        now = self.loop.clock.time()
+        loop = asyncio.get_running_loop()
+        now = loop.clock.time()
         if now >= 1234567895.0:
             return now
         else:
             return False
 
     async def test_condition(self) -> None:
+        loop = asyncio.get_running_loop()
         async with PeriodicUpdater([], period=2.0) as updater:
-            future = self.loop.create_future()
+            future = loop.create_future()
             updater.add_condition(self._condition, future)
             await asyncio.sleep(2)
             assert not future.done()
@@ -49,8 +50,9 @@ class TestPeriodicUpdater(WarpEventLoopTestCase):
             assert await future == 1234567896.0
 
     async def test_cancel_condition(self) -> None:
+        loop = asyncio.get_running_loop()
         async with PeriodicUpdater([], period=2.0) as updater:
-            future = self.loop.create_future()
+            future = loop.create_future()
             updater.add_condition(self._condition, future)
             await asyncio.sleep(2)
             assert not future.done()
@@ -61,8 +63,9 @@ class TestPeriodicUpdater(WarpEventLoopTestCase):
                 await future
 
     async def test_remove_condition(self) -> None:
+        loop = asyncio.get_running_loop()
         async with PeriodicUpdater([], period=2.0) as updater:
-            future = self.loop.create_future()
+            future = loop.create_future()
             updater.add_condition(self._condition, future)
             updater.start()
             await asyncio.sleep(2)
@@ -71,13 +74,13 @@ class TestPeriodicUpdater(WarpEventLoopTestCase):
             await asyncio.sleep(100)
             assert not future.done()
 
-    async def test_slow(self) -> None:
+    async def test_slow(self, caplog) -> None:
         comp1 = DummyComponent(1.0)
         comp2 = DummyComponent(1.0)
-        with self.assertLogs('kattelmod.updater', logging.WARNING) as cm:
+        with caplog.at_level(logging.WARNING, logger='kattelmod.updater'):
             async with PeriodicUpdater([comp1, comp2], period=1.5):
                 await asyncio.sleep(6.5)
-        assert re.search('Update task is struggling', cm.output[0])
+        assert 'Update task is struggling' in caplog.text
         expected = [1234567890.0, 1234567892.0, 1234567894.0, 1234567896.0]
         # The timestamp given for the update is unaffected by the time spent
         # inside the updates, so both components should see the same

@@ -3,9 +3,7 @@ import time
 import asyncio
 import functools
 from socket import socketpair
-from typing import Any, cast
-
-import asynctest
+from typing import Any
 
 from kattelmod.clock import Clock, WarpEventLoop
 import pytest
@@ -158,17 +156,22 @@ class WarpEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
         self.original.set_child_watcher(watcher)
 
 
-class WarpEventLoopTestCase(asynctest.TestCase):
+class WarpEventLoopTestCase:
     RATE = 0.0
     START_TIME = 1234567890.0
 
+    @pytest.fixture
     @classmethod
-    def setUpClass(cls) -> None:
-        # Make asynctest create a WarpEventLoop
-        policy = WarpEventLoopPolicy(asyncio.get_event_loop_policy(), cls.RATE, cls.START_TIME)
+    def event_loop_policy(cls):
+        original = asyncio.get_event_loop_policy()
+        policy = WarpEventLoopPolicy(original, cls.RATE, cls.START_TIME)
         asyncio.set_event_loop_policy(policy)
+        yield policy
+        asyncio.set_event_loop_policy(original)
 
+    @pytest.fixture
     @classmethod
-    def tearDownClass(cls) -> None:
-        policy = cast(WarpEventLoopPolicy, asyncio.get_event_loop_policy())
-        asyncio.set_event_loop_policy(policy.original)
+    def event_loop(cls, event_loop_policy):
+        loop = event_loop_policy.new_event_loop()
+        yield loop
+        loop.close()

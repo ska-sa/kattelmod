@@ -32,7 +32,7 @@ class DummyTelstateUpdatingComponent(TelstateUpdatingComponent):
 
 
 class TestComponent(WarpEventLoopTestCase):
-    def setUp(self):
+    def setup_method(self):
         self.comp = DummyComponent(88.0)
 
     def test_type(self):
@@ -63,7 +63,9 @@ class TestComponent(WarpEventLoopTestCase):
 
 
 class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
-    async def setUp(self):
+    # XXX Make it autouse until Pytest supports async setup_methods
+    @pytest.fixture(autouse=True)
+    async def setup_method(self):
         self.telstate = katsdptelstate.aio.TelescopeState()
         self.comp = DummyTelstateUpdatingComponent(88.0)
         self.comp._name = 'dummy'
@@ -188,8 +190,8 @@ class AsyncMethod:
         self.called_with = (args, kwargs)
 
 
-class TestMultiMethod(asynctest.TestCase):
-    def setUp(self):
+class TestMultiMethod:
+    def setup_method(self):
         self.sync1 = SyncMethod()
         self.sync2 = SyncMethod()
         self.async1 = AsyncMethod()
