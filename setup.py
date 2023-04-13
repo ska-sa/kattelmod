@@ -21,9 +21,8 @@ setup(name="kattelmod",
       include_package_data=True,
       package_data={'': ['systems/*/*.cfg', 'systems/*/*.txt']},
       zip_safe=False,
-      test_suite="nose.collector",
       setup_requires=['katversion'],
       use_katversion=True,
-      python_requires='>=3.6',     # Required by katsdptelstate[aio]
-      tests_require=["nose", "asynctest"],
+      python_requires='>=3.7',     # Required by katsdptelstate[aio]
+      tests_require=["pytest", "pytest-asyncio", "asynctest"],
       install_requires=["numpy", "aiokatcp", "async-timeout", "katpoint", "katsdptelstate[aio]"])
