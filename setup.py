@@ -24,5 +24,5 @@ setup(name="kattelmod",
       setup_requires=['katversion'],
       use_katversion=True,
       python_requires='>=3.7',     # Required by katsdptelstate[aio]
-      tests_require=["pytest", "pytest-asyncio", "asynctest"],
+      tests_require=["async-solipsism", "pytest", "pytest-asyncio"],
       install_requires=["numpy", "aiokatcp", "async-timeout", "katpoint", "katsdptelstate[aio]"])

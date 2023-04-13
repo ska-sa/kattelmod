@@ -1,6 +1,6 @@
 -c https://raw.githubusercontent.com/ska-sa/katsdpdockerbase/master/docker-base-build/base-requirements.txt
 
-asynctest
+async-solipsism==0.5
 pytest
-pytest-asyncio
+pytest-asyncio==0.20.3
 pytest-cov

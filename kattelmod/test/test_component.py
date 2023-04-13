@@ -1,5 +1,5 @@
 import asyncio
-import asynctest
+import async_solipsism
 from unittest import mock
 
 import katsdptelstate.aio
@@ -125,30 +125,42 @@ class TestTelstateUpdatingComponent(WarpEventLoopTestCase):
         await self.comp._start()
 
 
-class TestKATCPComponent(asynctest.ClockedTestCase):
-    async def setUp(self) -> None:
+def test_bad_katcp_endpoint():
+    with pytest.raises(ValueError):
+        KATCPComponent('invalid.com')
+    with pytest.raises(ValueError):
+        KATCPComponent('')
+
+
+class TestKATCPComponent:
+    @pytest.fixture
+    @classmethod
+    def event_loop(cls):
+        loop = async_solipsism.EventLoop()
+        yield loop
+        loop.close()
+
+    @pytest.fixture(autouse=True)
+    async def setup_method(self) -> None:
+        loop = asyncio.get_running_loop()
         self.server = await asyncio.start_server(self._client_cb, '127.0.0.1', 0)
         self.endpoint = self.server.sockets[0].getsockname()[:2]
-        self.addCleanup(self.server.wait_closed)
-        self.addCleanup(self.server.close)
-        self.reader = self.loop.create_future()    # type: asyncio.Future[asyncio.StreamReader]
-        self.writer = self.loop.create_future()    # type: asyncio.Future[asyncio.StreamWriter]
+        self.reader = loop.create_future()    # type: asyncio.Future[asyncio.StreamReader]
+        self.writer = loop.create_future()    # type: asyncio.Future[asyncio.StreamWriter]
+        yield
+        writer = await self.writer
+        writer.close()
+        self.server.close()
+        await self.server.wait_closed()
 
     def _client_cb(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.reader.set_result(reader)
         self.writer.set_result(writer)
-        self.addCleanup(writer.close)
-
-    def test_bad_endpoint(self):
-        with pytest.raises(ValueError):
-            KATCPComponent('invalid.com')
-        with pytest.raises(ValueError):
-            KATCPComponent('')
 
     async def test_connect_timeout(self):
         comp = KATCPComponent('{}:{}'.format(*self.endpoint))
         task = asyncio.ensure_future(comp._start())
-        await self.advance(100)
+        await asyncio.sleep(100)
         with pytest.raises(asyncio.TimeoutError):
             await task
 
@@ -162,7 +174,8 @@ class TestKATCPComponent(asynctest.ClockedTestCase):
         await writer.drain()
 
     async def test_good(self):
-        task = self.loop.create_task(self._interact())
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(self._interact())
         comp = KATCPComponent('{}:{}'.format(*self.endpoint))
         await comp._start()
         await comp._start()      # Check that it's idempotent
