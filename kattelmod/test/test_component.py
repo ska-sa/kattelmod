@@ -133,8 +133,8 @@ def test_bad_katcp_endpoint():
 
 
 class TestKATCPComponent:
-    @pytest.fixture
     @classmethod
+    @pytest.fixture
     def event_loop(cls):
         loop = async_solipsism.EventLoop()
         yield loop

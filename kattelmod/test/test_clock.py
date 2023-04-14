@@ -160,8 +160,8 @@ class WarpEventLoopTestCase:
     RATE = 0.0
     START_TIME = 1234567890.0
 
-    @pytest.fixture
     @classmethod
+    @pytest.fixture
     def event_loop_policy(cls):
         original = asyncio.get_event_loop_policy()
         policy = WarpEventLoopPolicy(original, cls.RATE, cls.START_TIME)
@@ -169,8 +169,8 @@ class WarpEventLoopTestCase:
         yield policy
         asyncio.set_event_loop_policy(original)
 
-    @pytest.fixture
     @classmethod
+    @pytest.fixture
     def event_loop(cls, event_loop_policy):
         loop = event_loop_policy.new_event_loop()
         yield loop
