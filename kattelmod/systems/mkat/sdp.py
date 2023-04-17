@@ -7,18 +7,14 @@ import aiokatcp
 from katpoint import Antenna
 
 from kattelmod.clock import get_clock, real_timeout
-from kattelmod.component import (KATCPComponent, TelstateUpdatingComponent,
-                                 TargetObserverMixin)
+from kattelmod.component import (
+    ComponentNotReadyError,
+    KATCPComponent,
+    TargetObserverMixin,
+    TelstateUpdatingComponent,
+)
 from kattelmod.session import CaptureState
 from .fake import Subarray as _Subarray
-
-
-class ConnectionError(IOError):
-    """Failed to connect to SDP controller."""
-
-
-class ConfigurationError(ValueError):
-    """Failed to configure SDP product."""
 
 
 class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
@@ -38,9 +34,9 @@ class ScienceDataProcessor(KATCPComponent):
 
     def _validate(self, post_configure: bool = True) -> None:
         if not self._client:
-            raise ConnectionError('SDP master controller not connected via KATCP')
+            raise ComponentNotReadyError('SDP master controller not connected via KATCP')
         if post_configure and not self.subarray_product:
-            raise ConfigurationError('SDP data product not configured')
+            raise ComponentNotReadyError('SDP data product not configured')
 
     async def get_capture_state(self, subarray_product: str) -> CaptureState:
         self._validate(post_configure=False)
@@ -78,7 +74,7 @@ class ScienceDataProcessor(KATCPComponent):
                 msg, _ = await self._client.request(
                     'product-configure', subarray_product, json.dumps(config))
         except aiokatcp.FailReply as exc:
-            raise ConfigurationError("Failed to configure product: " + str(exc)) from None
+            raise ComponentNotReadyError("Failed to configure product: " + str(exc)) from None
         self.subarray_product = subarray_product
         return initial_state
 
