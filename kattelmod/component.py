@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 SENSOR_MIN_PERIOD = 0.4
 
 
+class ComponentNotReadyError(RuntimeError):
+    """Component not ready to perform requested action."""
+
+
 def is_rate_limited(sensor_name: str) -> bool:
     """Test whether sensor will have rate-limited updates."""
     return sensor_name.startswith('pos_')
