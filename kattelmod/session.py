@@ -131,7 +131,7 @@ class CaptureSession:
                     self.logger.warning("Catalogue %r contains bad targets", arg)
                 from_catalogues += len(targets) - count_before_add
                 num_catalogues += 1
-            except IOError:
+            except OSError:
                 # If file failed to load, assume it is target description string
                 try:
                     targets.add(arg)
@@ -276,14 +276,14 @@ class CaptureSession:
             self.ants.activity = self.obs.activity = 'slew'
             self.logger.info('slewing to target')
             # Wait until we are on target
-            cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])  # noqa: E731
+            cond = lambda: {ant.activity for ant in self.ants} == {'track'}  # noqa: E731
             await self.sleep(200, cond)
             self.logger.info('target reached')
         # Stay on target for desired time
         self.obs.activity = 'track'
         self.logger.info('tracking target')
         await self.sleep(duration)
-        self.logger.info('target tracked for {:g} seconds'.format(duration))
+        self.logger.info(f'target tracked for {duration:g} seconds')
         return True
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:

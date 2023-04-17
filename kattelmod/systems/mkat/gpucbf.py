@@ -9,7 +9,7 @@ from kattelmod.component import (
 
 class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
     def __init__(self) -> None:
-        super(CorrelatorBeamformer, self).__init__()
+        super().__init__()
         self._client = None
         self._initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'

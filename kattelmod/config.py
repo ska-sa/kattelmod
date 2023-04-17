@@ -20,14 +20,14 @@ def session_from_config(config_file):
             config_file = os.path.join(systems_path, config_file)
         files_read = cfg.read(config_file)
         if files_read != [config_file]:
-            raise Error("Could not open config file '{}'".format(config_file))
+            raise Error(f"Could not open config file '{config_file}'")
     # Get intended telescope system and verify that it is supported
     main = [sect for sect in cfg.sections() if sect.startswith('Telescope')]
     if not main:
-        raise Error("Config file '{}' has no Telescope section".format(config_file))
+        raise Error(f"Config file '{config_file}' has no Telescope section")
     system = main[0].partition(' ')[2]
     try:
-        import_module('kattelmod.systems.{}'.format(system))
+        import_module(f'kattelmod.systems.{system}')
     except ImportError:
         raise Error("Unknown telescope system '{}', expected one of {}"
                     .format(system, kattelmod.telescope_systems))
@@ -36,7 +36,7 @@ def session_from_config(config_file):
     all_ants = {line.split(',')[0]: line.strip() for line in all_ants}
     # Construct all components
     components = []
-    for comp_name, comp_type in cfg.items('Telescope {}'.format(system)):
+    for comp_name, comp_type in cfg.items(f'Telescope {system}'):
         # Expand receptor groups
         group = comp_name.endswith('*') and cfg.has_section(comp_name[:-1])
         if group:
@@ -65,6 +65,6 @@ def session_from_config(config_file):
         # XXX Complain if comps is empty
         components.append(MultiComponent(comp_name, comps) if group else comps[0])
     # Construct session object
-    module_path = "kattelmod.systems.{}.session".format(system)
+    module_path = f"kattelmod.systems.{system}.session"
     CaptureSession = getattr(import_module(module_path), 'CaptureSession')
     return CaptureSession(MultiComponent(system, components))
