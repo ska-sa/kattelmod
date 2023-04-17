@@ -11,7 +11,7 @@ from kattelmod.session import CaptureState
 class Subarray(TelstateUpdatingComponent):
     def __init__(self, config_label: str = 'unknown', band: str = 'l', product: str = 'c856M4k',
                  dump_rate: float = 1.0, sub_nr: int = 1, pool_resources: str = '') -> None:
-        super(Subarray, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
 
 
@@ -21,7 +21,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
                  real_el_min_deg: float = 15.0, real_el_max_deg: float = 92.0,
                  max_slew_azim_dps: float = 2.0, max_slew_elev_dps: float = 1.0,
                  inner_threshold_deg: float = 0.01) -> None:
-        super(AntennaPositioner, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
         self.activity = 'stop'
         self.target = ''
@@ -39,7 +39,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
         self._target = new_target
 
     def _update(self, timestamp: float) -> None:
-        super(AntennaPositioner, self)._update(timestamp)
+        super()._update(timestamp)
         elapsed_time = self._elapsed_time
         if self.activity in ('error', 'stop'):
             return
@@ -80,7 +80,7 @@ class AntennaPositioner(TargetObserverMixin, TelstateUpdatingComponent):
 
 class Environment(TelstateUpdatingComponent):
     def __init__(self) -> None:
-        super(Environment, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
         self.pressure = 1020.3
         self.relative_humidity = 60.0
@@ -96,7 +96,7 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
                  int_time: float = 0.49978856074766354,
                  scale_factor_timestamp: float = 1712000000,
                  center_freq: float = 1284000000.0, observer: str = ''):
-        super(CorrelatorBeamformer, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
         self.target = ''
         self.auto_delay_enabled = True
@@ -108,7 +108,7 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 
 class ScienceDataProcessor(TelstateUpdatingComponent):
     def __init__(self) -> None:
-        super(ScienceDataProcessor, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
         self._add_dummy_methods('product_deconfigure capture_init capture_done')
 
@@ -122,7 +122,7 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
 
 class Observation(TelstateUpdatingComponent):
     def __init__(self, params: Dict[str, Any] = {}):
-        super(Observation, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
         self.label = ''
         self.script_log = ''

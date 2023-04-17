@@ -191,8 +191,8 @@ def generate(argv):
     # Also need to indent the whole thing, to stop the final } from
     # being in the left-most column.
     config_str = config_str.replace('\n', '\n    ')
-    mkat_ants = ['m{:03}'.format(ant) for ant in sorted(MKAT_ANTENNA_ORDER[:args.mkat_antennas])]
-    ska_ants = ['s{:04}'.format(ant) for ant in sorted(SKA_ANTENNA_ORDER[:args.ska_antennas])]
+    mkat_ants = [f'm{ant:03}' for ant in sorted(MKAT_ANTENNA_ORDER[:args.mkat_antennas])]
+    ska_ants = [f's{ant:04}' for ant in sorted(SKA_ANTENNA_ORDER[:args.ska_antennas])]
 
     content = TEMPLATE.substitute(
         ants=','.join(mkat_ants + ska_ants),

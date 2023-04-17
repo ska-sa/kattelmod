@@ -49,10 +49,10 @@ class Component:
     @classmethod
     def _type(cls) -> str:
         module = cls.__module__.replace('kattelmod.systems.', '')
-        return "{}.{}".format(module, cls.__name__)
+        return f"{module}.{cls.__name__}"
 
     def __repr__(self) -> str:
-        return "<{} '{}' at {}>".format(self._type(), self._name, id(self))
+        return f"<{self._type()} '{self._name}' at {id(self)}>"
 
     @property
     def _updatable(self) -> bool:
@@ -94,7 +94,7 @@ class Component:
     def _fake(self) -> 'Component':
         """Construct an equivalent fake component."""
         orig_type = self._type().rsplit('.', 2)
-        fake_type = '{}.fake.{}'.format(orig_type[0], orig_type[2])
+        fake_type = f'{orig_type[0]}.fake.{orig_type[2]}'
         params = {attr: getattr(self, attr) for attr in self._immutables}
         fake_comp = construct_component(fake_type, self._name, params)
         for sensor_name in self._sensors:
@@ -126,7 +126,7 @@ class TelstateUpdatingComponent(Component):
         time_to_send = not is_rate_limited(attr_name) or \
             self._last_rate_limited_send == self._last_update
         if not attr_name.startswith('_') and self._telstate and time_to_send:
-            sensor_name = "{}_{}".format(self._name, attr_name)
+            sensor_name = f"{self._name}_{attr_name}"
             # Use fixed update time while within an update() call
             ts = self._update_time if self._update_time else get_clock().time()
             # If this is initial sensor update, move it into recent past to
@@ -272,11 +272,11 @@ class MultiComponent(Component):
         if len(self._comps) > 0:
             comp_types = [comp._type() for comp in self._comps]
             comp_type = comp_types[0] if len(set(comp_types)) == 1 else 'Component'
-            comps = " with {} {}".format(len(self._comps), comp_type)
+            comps = f" with {len(self._comps)} {comp_type}"
             comps = comps + 's' if len(self._comps) > 1 else comps
         else:
             comps = ""
-        return "<MultiComponent '{}'{} at {}>".format(self._name, comps, id(self))
+        return f"<MultiComponent '{self._name}'{comps} at {id(self)}>"
 
     def __iter__(self) -> Iterator[Component]:
         return iter(self._comps)
@@ -287,7 +287,7 @@ class MultiComponent(Component):
         if comp in self._comps:
             return comp
         else:
-            raise KeyError("No component '{}' in '{}'".format(key, self._name))
+            raise KeyError(f"No component '{key}' in '{self._name}'")
 
     def __contains__(self, key: Union[str, Component, Iterable[Union[str, Component]]]) -> bool:
         """Test whether MultiComponent contains component(s) by name or value."""
@@ -339,7 +339,7 @@ def construct_component(comp_type: str, comp_name: str = None, params: Mapping[s
     try:
         NewComponent = getattr(import_module(module_path), comp_class)
     except (ImportError, AttributeError):
-        raise TypeError("No component class named '{}'".format(comp_type))
+        raise TypeError(f"No component class named '{comp_type}'")
     params = params if params else {}
     # Cull any unknown parameters before constructing object
     # XXX Figure out a better way to construct from another similar component
