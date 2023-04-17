@@ -1,5 +1,5 @@
 import os.path
-from configparser import SafeConfigParser, Error
+from configparser import ConfigParser, Error
 from importlib import import_module
 
 import kattelmod.systems
@@ -11,7 +11,7 @@ import json
 def session_from_config(config_file):
     # Default place to look for system config files is in systems module
     systems_path = os.path.dirname(kattelmod.systems.__file__)
-    cfg = SafeConfigParser(allow_no_value=True)
+    cfg = ConfigParser(allow_no_value=True)
     # Handle file-like objects separately
     if hasattr(config_file, 'readline'):
         cfg.readfp(config_file)
