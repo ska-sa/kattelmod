@@ -23,12 +23,16 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'
         self.auto_delay_enabled = True
-        self._add_dummy_methods('capture_start capture_stop')
+        self._add_dummy_methods('capture_start capture_stop product_deconfigure')
+
+    async def product_configure(self, endpoint: str) -> None:
+        pass
 
 
 class ScienceDataProcessor(KATCPComponent):
     def __init__(self, master_controller: str, config: dict) -> None:
         super(ScienceDataProcessor, self).__init__(master_controller)
+        self._product_controller = ''
         self._initialise_attributes(locals())
         self.subarray_product = ''
 
@@ -73,6 +77,9 @@ class ScienceDataProcessor(KATCPComponent):
             async with real_timeout(300):
                 msg, _ = await self._client.request(
                     'product-configure', subarray_product, json.dumps(config))
+            product_host = msg[1].decode('utf-8')
+            product_port = msg[2].decode('utf-8')
+            self._product_controller = f'{product_host}:{product_port}'
         except aiokatcp.FailReply as exc:
             raise ComponentNotReadyError("Failed to configure product: " + str(exc)) from None
         self.subarray_product = subarray_product

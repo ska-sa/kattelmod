@@ -100,7 +100,10 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
         self._initialise_attributes(locals())
         self.target = ''
         self.auto_delay_enabled = True
-        self._add_dummy_methods('capture_start capture_stop')
+        self._add_dummy_methods('capture_start capture_stop product_deconfigure')
+
+    async def product_configure(self, endpoint: str) -> None:
+        pass
 
 
 class ScienceDataProcessor(TelstateUpdatingComponent):
