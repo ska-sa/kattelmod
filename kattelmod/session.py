@@ -52,6 +52,7 @@ class CaptureSession:
             setattr(self, comp._name, comp)
         self._updater = None      # type: Optional[PeriodicUpdater]
         self._initial_state = CaptureState.UNKNOWN   # type: CaptureState
+        self.state = self._initial_state             # type: CaptureState
         self.targets = False
         self.obs_params = {}      # type: Dict[str, Any]
         self.logger = logging.getLogger('kat.session')
@@ -288,22 +289,23 @@ class CaptureSession:
         return True
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.CONFIGURED
+        return self._initial_state
 
     async def capture_init(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.INITED
 
     async def capture_start(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.STARTED
 
     async def capture_stop(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.INITED
 
     async def capture_done(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.CONFIGURED
 
     async def product_deconfigure(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.UNCONFIGURED
 
 
 """
