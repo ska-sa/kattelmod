@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict, Any, Union, Optional
 
 from katpoint import Antenna, Target, rad2deg, deg2rad, wrap_angle, construct_azel_target
 
+from kattelmod.clock import get_clock
 from kattelmod.component import TelstateUpdatingComponent, TargetObserverMixin
 from kattelmod.session import CaptureState
 
@@ -110,7 +111,7 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
     def __init__(self) -> None:
         super().__init__()
         self._initialise_attributes(locals())
-        self._add_dummy_methods('product_deconfigure capture_init capture_done')
+        self._add_dummy_methods('product_deconfigure capture_done')
 
     async def product_configure(self, sub: Subarray, receptors: List[Antenna],
                                 start_time: Optional[float] = None) -> CaptureState:
@@ -119,6 +120,10 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
 
     async def get_telstate(self) -> str:
         return 'fake'
+
+    async def capture_init(self) -> None:
+        self.capture_block_id = str(int(get_clock().time()))
+        await self._flush()
 
 
 class Observation(TelstateUpdatingComponent):

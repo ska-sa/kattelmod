@@ -57,12 +57,7 @@ class CaptureSession(BaseCaptureSession):
     async def capture_init(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_init()
-            try:
-                capture_block_id = await self.telstate['sdp_capture_block_id']
-            except KeyError:
-                self.logger.warning('No sdp_capture_block_id in telstate - '
-                                    'assuming simulated environment')
-                capture_block_id = str(self.time())
+            capture_block_id = await self.telstate['sdp_capture_block_id']
             self.obs_params['capture_block_id'] = capture_block_id
             cb_telstate = self.telstate.view(capture_block_id)
             self.telstate = self.components._telstate = cb_telstate
