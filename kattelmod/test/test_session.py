@@ -3,6 +3,7 @@ import pytest
 
 import kattelmod
 from kattelmod.component import TelstateUpdatingComponent
+from kattelmod.session import CaptureState
 
 ARGS = [
     '--config=mkat/fake_2ant.cfg',
@@ -41,7 +42,9 @@ async def _telstate_get(s, key):
 
 
 async def test_session(session, args):
+    assert session.state == CaptureState.UNKNOWN
     async with await session.connect(args):
+        assert session.state == CaptureState.STARTED
         assert session.dry_run
         telstate_obs_params = await _telstate_get(session, 'obs_params')
         assert session.obs_params == telstate_obs_params
@@ -51,3 +54,4 @@ async def test_session(session, args):
         assert await _telstate_get(session, 'obs_label') == 'track'
         await session.track(target, duration=10)
         assert await _telstate_get(session, 'obs_activity') == 'track'
+    assert session.state == CaptureState.UNCONFIGURED

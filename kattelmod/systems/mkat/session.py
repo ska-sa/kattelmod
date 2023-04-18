@@ -52,6 +52,7 @@ class CaptureSession(BaseCaptureSession):
         # a capture block ID view - disable it for now to avoid pollution
         if 'obs' in self:
             self.obs._telstate = None
+        self.state = CaptureState.CONFIGURED
         return initial_state
 
     async def capture_init(self) -> None:
@@ -64,18 +65,22 @@ class CaptureSession(BaseCaptureSession):
             if 'obs' in self:
                 self.obs.params = self.obs_params
                 await self.obs._start()
+        self.state = CaptureState.INITED
 
     async def capture_start(self) -> None:
         if 'cbf' in self:
             await self.cbf.capture_start()
+        self.state = CaptureState.STARTED
 
     async def capture_stop(self) -> None:
         if 'cbf' in self:
             await self.cbf.capture_stop()
+        self.state = CaptureState.INITED
 
     async def capture_done(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_done()
+        self.state = CaptureState.CONFIGURED
 
     async def product_deconfigure(self) -> None:
         self.telstate.backend.close()
@@ -84,3 +89,4 @@ class CaptureSession(BaseCaptureSession):
             await self.cbf.product_deconfigure()
         if 'sdp' in self:
             await self.sdp.product_deconfigure()
+        self.state = CaptureState.UNCONFIGURED
