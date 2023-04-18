@@ -94,10 +94,9 @@ class ScienceDataProcessor(KATCPComponent):
         self._validate()
         try:
             msg, _ = await self._client.request('telstate-endpoint', self.subarray_product)
-            # XXX log connection problems
             return msg[0].decode('utf-8')
-        except aiokatcp.FailReply:
-            return ''
+        except aiokatcp.FailReply as exc:
+            raise ComponentNotReadyError('Could not obtain telstate endpoint') from exc
 
     async def capture_init(self) -> None:
         self._validate()

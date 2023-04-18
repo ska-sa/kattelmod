@@ -118,7 +118,7 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
         return CaptureState.UNCONFIGURED
 
     async def get_telstate(self) -> str:
-        return ''
+        return 'fake'
 
 
 class Observation(TelstateUpdatingComponent):
