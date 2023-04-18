@@ -151,8 +151,8 @@ class TelstateUpdatingComponent(Component):
     async def _flush(self) -> None:
         """Wait for asynchronous telstate updates to complete."""
         while self._update_queue:
-            await self._update_queue[0]
-            self._update_queue.popleft()
+            update_task = self._update_queue.popleft()
+            await update_task
 
     async def _start(self) -> None:
         if self._started:
