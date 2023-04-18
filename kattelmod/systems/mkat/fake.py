@@ -114,7 +114,8 @@ class ScienceDataProcessor(TelstateUpdatingComponent):
 
     async def product_configure(self, sub: Subarray, receptors: List[Antenna],
                                 start_time: Optional[float] = None) -> CaptureState:
-        return CaptureState.STARTED
+        # Assume that the fake SDP always starts out unconfigured
+        return CaptureState.UNCONFIGURED
 
     async def get_telstate(self) -> str:
         return ''
