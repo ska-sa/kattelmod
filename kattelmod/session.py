@@ -51,6 +51,7 @@ class CaptureSession:
         for comp in components:
             setattr(self, comp._name, comp)
         self._updater = None      # type: Optional[PeriodicUpdater]
+        self._initial_state = CaptureState.UNKNOWN   # type: CaptureState
         self.targets = False
         self.obs_params = {}      # type: Dict[str, Any]
         self.logger = logging.getLogger('kat.session')
