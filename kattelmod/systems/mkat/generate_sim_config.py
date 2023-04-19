@@ -10,7 +10,7 @@ TEMPLATE = string.Template("""\
 [Telescope mkat]
 ants* = fake.AntennaPositioner
 sub = fake.Subarray
-env = fake.Environment
+anc = fake.Environment
 cbf = sdp.CorrelatorBeamformer
 sdp = sdp.ScienceDataProcessor
 obs = fake.Observation

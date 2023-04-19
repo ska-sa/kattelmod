@@ -83,10 +83,10 @@ class Environment(TelstateUpdatingComponent):
     def __init__(self) -> None:
         super().__init__()
         self._initialise_attributes(locals())
-        self.pressure = 1020.3
-        self.relative_humidity = 60.0
-        self.temperature = 25.0
-        self.wind_speed = 4.2
+        self.air_pressure = 1020.3
+        self.air_relative_humidity = 60.0
+        self.air_temperature = 25.0
+        self.mean_wind_speed = 4.2
         self.wind_direction = 90.0
 
 

@@ -32,8 +32,8 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 class ScienceDataProcessor(KATCPComponent):
     def __init__(self, master_controller: str, config: dict) -> None:
         super().__init__(master_controller)
-        self._product_controller = ''
         self._initialise_attributes(locals())
+        self._product_controller = ''
         self.subarray_product = ''
 
     def _validate(self, post_configure: bool = True) -> None:
