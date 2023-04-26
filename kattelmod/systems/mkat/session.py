@@ -33,8 +33,7 @@ class CaptureSession(BaseCaptureSession):
 
         if endpoint != 'fake':
             backend = await RedisBackend.from_url(f'redis://{endpoint}')
-            telstate = TelescopeState(backend)
-            self.telstate = self.components._telstate = telstate
+            self.telstate = self.components._telstate = TelescopeState(backend)
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN
@@ -60,9 +59,9 @@ class CaptureSession(BaseCaptureSession):
             await self.sdp.capture_init()
             capture_block_id = await self.telstate['sdp_capture_block_id']
             self.obs_params['capture_block_id'] = capture_block_id
-            cb_telstate = self.telstate.view(capture_block_id)
-            self.telstate = self.components._telstate = cb_telstate
+            self.telstate = self.telstate.view(capture_block_id)
             if 'obs' in self:
+                self.obs._telstate = self.telstate
                 self.obs.params = self.obs_params
                 await self.obs._start()
         self.state = CaptureState.INITED
@@ -80,6 +79,9 @@ class CaptureSession(BaseCaptureSession):
     async def capture_done(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_done()
+        self.telstate = self.telstate.root()
+        if 'obs' in self:
+            self.obs._telstate = None
         self.state = CaptureState.CONFIGURED
 
     async def product_deconfigure(self) -> None:
