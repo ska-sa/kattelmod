@@ -107,7 +107,11 @@ class CaptureSession:
     def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(*args, **kwargs)
         parser.add_argument('--config', default='mkat/fake_2ant.cfg')
-        parser.add_argument('--description')
+        parser.add_argument('--description', default='Test observation')
+        parser.add_argument('--observer', default='testy')
+        parser.add_argument('--proposal-id', default='TEST')
+        datestr = str(Timestamp()).split()[0].replace('-', '')
+        parser.add_argument('--sb-id-code', default=datestr + '-0001')
         parser.add_argument('--dont-stop', action='store_true')
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--log-level', default='INFO')
