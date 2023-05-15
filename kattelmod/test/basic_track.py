@@ -15,6 +15,9 @@ args = parser.parse_args()
 
 
 async def run(session, args):
+    # Pretend the noise diode fired (this won't work on a "real" system!)
+    band = session.sub.band
+    setattr(session.ants, f'dig_{band}_band_noise_diode', 1.0)
     for target in session.targets:
         # Start a new compound scan (skip if dish will hit horizon or azimuth wrap)
         for compscan in session.new_compound_scan():
