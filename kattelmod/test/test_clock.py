@@ -67,6 +67,8 @@ def test_warp_clock():
     clock = Clock(0.0, START_TIME)
     monotonic_start = clock.monotonic()
     assert clock.time() == START_TIME
+    time.sleep(0.5)
+    assert clock.time() == START_TIME  # WarpClock does not follow wall time
 
     clock.advance(3.5)
     assert clock.time() == START_TIME + 3.5
