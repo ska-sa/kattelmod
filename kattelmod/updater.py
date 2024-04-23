@@ -66,9 +66,9 @@ class PeriodicUpdater:
                 update_time = after_update - timestamp
                 remaining_time = self.period - update_time
                 if remaining_time < 0:
-                    logger.warn("Update task is struggling: updates take "
-                                "%g seconds but repeat every %g seconds" %
-                                (update_time, self.period))
+                    logger.warning("Update task is struggling: updates take "
+                                   "%g seconds but repeat every %g seconds" %
+                                   (update_time, self.period))
                     # asyncio.sleep behaviour differs between Python versions
                     # when the sleep time is negative. From 3.7 onwards it
                     # uses the same fast path as a negative sleep. To make
