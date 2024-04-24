@@ -40,6 +40,9 @@ class CaptureSession(BaseCaptureSession):
             prod_conf = self.sdp.product_configure
             start_time = Timestamp(args.start_time).secs if args.start_time else None
             initial_state = await prod_conf(self.sub, sorted(ants), start_time)
+            if 'cbf' in self:
+                product_controller = getattr(self.sdp, '_product_controller', '')
+                await self.cbf.product_configure(product_controller)
         self._telstate = self.components._telstate = await self._get_telstate(args)
         # The obs telstate is only configured on capture_init since it needs
         # a capture block ID view - disable it for now to avoid pollution
@@ -79,5 +82,7 @@ class CaptureSession(BaseCaptureSession):
         if self._telstate:
             self._telstate.backend.close()
             await self._telstate.backend.wait_closed()
+        if 'cbf' in self:
+            await self.cbf.product_deconfigure()
         if 'sdp' in self:
             await self.sdp.product_deconfigure()
