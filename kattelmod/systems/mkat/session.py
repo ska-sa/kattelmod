@@ -1,36 +1,39 @@
 import argparse
-from typing import Any
+from typing import Any, Iterable, Union
 
 from katpoint import Timestamp
 from katsdptelstate.aio import TelescopeState
-import katsdptelstate.aio.redis
+from katsdptelstate.aio.redis import RedisBackend
 
 from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
+from kattelmod.component import Component, MultiComponent
 
 
 class CaptureSession(BaseCaptureSession):
     """Capture session for the MeerKAT system."""
 
+    def __init__(self, components: Union[MultiComponent, Iterable[Component]] = ()) -> None:
+        super().__init__(components)
+        # Start off with a "fake" in-memory telstate
+        self.telstate = self.components._telstate = TelescopeState()
+
     def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
         parser = super().argparser(*args, **kwargs)
-        parser.add_argument('--telstate')
+        parser.add_argument('--telstate', help="Override telstate (host:port or 'fake')")
         return parser
 
-    async def _get_telstate(self, args: argparse.Namespace) -> TelescopeState:
+    async def _set_telstate(self, args: argparse.Namespace) -> None:
+        """Determine telstate endpoint and connect to it if not fake."""
         if getattr(args, 'telstate', None):
             endpoint = args.telstate
         elif 'sdp' in self:
             endpoint = await self.sdp.get_telstate()
         else:
-            endpoint = ''
+            endpoint = 'fake'
 
-        if not endpoint:
-            return None
-        elif endpoint == 'fake':
-            return TelescopeState()
-        else:
-            backend = await katsdptelstate.aio.redis.RedisBackend.from_url(f'redis://{endpoint}')
-            return TelescopeState(backend)
+        if endpoint != 'fake':
+            backend = await RedisBackend.from_url(f'redis://{endpoint}')
+            self.telstate = self.components._telstate = TelescopeState(backend)
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
         initial_state = CaptureState.UNKNOWN
@@ -43,46 +46,49 @@ class CaptureSession(BaseCaptureSession):
             if 'cbf' in self:
                 product_controller = getattr(self.sdp, '_product_controller', '')
                 await self.cbf.product_configure(product_controller)
-        self._telstate = self.components._telstate = await self._get_telstate(args)
+        await self._set_telstate(args)
         # The obs telstate is only configured on capture_init since it needs
         # a capture block ID view - disable it for now to avoid pollution
         if 'obs' in self:
             self.obs._telstate = None
+        self.state = CaptureState.CONFIGURED
         return initial_state
 
     async def capture_init(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_init()
-            try:
-                capture_block_id = await self._telstate['sdp_capture_block_id']
-            except KeyError:
-                self.logger.warning('No sdp_capture_block_id in telstate - '
-                                    'assuming simulated environment')
-                capture_block_id = str(self.time())
+            capture_block_id = await self.telstate['sdp_capture_block_id']
             self.obs_params['capture_block_id'] = capture_block_id
-            cb_telstate = self._telstate.view(capture_block_id)
+            self.telstate = self.telstate.view(capture_block_id)
             if 'obs' in self:
+                self.obs._telstate = self.telstate
                 self.obs.params = self.obs_params
-                self.obs._telstate = cb_telstate
                 await self.obs._start()
+        self.state = CaptureState.INITED
 
     async def capture_start(self) -> None:
         if 'cbf' in self:
             await self.cbf.capture_start()
+        self.state = CaptureState.STARTED
 
     async def capture_stop(self) -> None:
         if 'cbf' in self:
             await self.cbf.capture_stop()
+        self.state = CaptureState.INITED
 
     async def capture_done(self) -> None:
         if 'sdp' in self:
             await self.sdp.capture_done()
+        self.telstate = self.telstate.root()
+        if 'obs' in self:
+            self.obs._telstate = None
+        self.state = CaptureState.CONFIGURED
 
     async def product_deconfigure(self) -> None:
-        if self._telstate:
-            self._telstate.backend.close()
-            await self._telstate.backend.wait_closed()
+        self.telstate.backend.close()
+        await self.telstate.backend.wait_closed()
         if 'cbf' in self:
             await self.cbf.product_deconfigure()
         if 'sdp' in self:
             await self.sdp.product_deconfigure()
+        self.state = CaptureState.UNCONFIGURED

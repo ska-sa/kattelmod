@@ -51,6 +51,8 @@ class CaptureSession:
         for comp in components:
             setattr(self, comp._name, comp)
         self._updater = None      # type: Optional[PeriodicUpdater]
+        self._initial_state = CaptureState.UNKNOWN   # type: CaptureState
+        self.state = self._initial_state             # type: CaptureState
         self.targets = False
         self.obs_params = {}      # type: Dict[str, Any]
         self.logger = logging.getLogger('kat.session')
@@ -105,7 +107,11 @@ class CaptureSession:
     def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(*args, **kwargs)
         parser.add_argument('--config', default='mkat/fake_2ant.cfg')
-        parser.add_argument('--description')
+        parser.add_argument('--description', default='Test observation')
+        parser.add_argument('--observer', default='testy')
+        parser.add_argument('--proposal-id', default='TEST')
+        datestr = str(Timestamp()).split()[0].replace('-', '')
+        parser.add_argument('--sb-id-code', default=datestr + '-0001')
         parser.add_argument('--dont-stop', action='store_true')
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--log-level', default='INFO')
@@ -131,7 +137,7 @@ class CaptureSession:
                     self.logger.warning("Catalogue %r contains bad targets", arg)
                 from_catalogues += len(targets) - count_before_add
                 num_catalogues += 1
-            except IOError:
+            except OSError:
                 # If file failed to load, assume it is target description string
                 try:
                     targets.add(arg)
@@ -276,33 +282,34 @@ class CaptureSession:
             self.ants.activity = self.obs.activity = 'slew'
             self.logger.info('slewing to target')
             # Wait until we are on target
-            cond = lambda: set(ant.activity for ant in self.ants) == set(['track'])  # noqa: E731
+            cond = lambda: {ant.activity for ant in self.ants} == {'track'}  # noqa: E731
             await self.sleep(200, cond)
             self.logger.info('target reached')
         # Stay on target for desired time
         self.obs.activity = 'track'
         self.logger.info('tracking target')
         await self.sleep(duration)
-        self.logger.info('target tracked for {:g} seconds'.format(duration))
+        self.logger.info(f'target tracked for {duration:g} seconds')
         return True
 
     async def product_configure(self, args: argparse.Namespace) -> CaptureState:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.CONFIGURED
+        return self._initial_state
 
     async def capture_init(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.INITED
 
     async def capture_start(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.STARTED
 
     async def capture_stop(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.INITED
 
     async def capture_done(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.CONFIGURED
 
     async def product_deconfigure(self) -> None:
-        raise NotImplementedError          # pragma: nocover
+        self.state = CaptureState.UNCONFIGURED
 
 
 """

@@ -19,7 +19,7 @@ from .fake import Subarray as _Subarray
 
 class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
     def __init__(self) -> None:
-        super(CorrelatorBeamformer, self).__init__()
+        super().__init__()
         self._initialise_attributes(locals())
         self.target = 'Zenith, azel, 0, 90'
         self.auto_delay_enabled = True
@@ -31,9 +31,9 @@ class CorrelatorBeamformer(TargetObserverMixin, TelstateUpdatingComponent):
 
 class ScienceDataProcessor(KATCPComponent):
     def __init__(self, master_controller: str, config: dict) -> None:
-        super(ScienceDataProcessor, self).__init__(master_controller)
-        self._product_controller = ''
+        super().__init__(master_controller)
         self._initialise_attributes(locals())
+        self._product_controller = ''
         self.subarray_product = ''
 
     def _validate(self, post_configure: bool = True) -> None:
@@ -55,7 +55,7 @@ class ScienceDataProcessor(KATCPComponent):
 
     async def product_configure(self, sub: _Subarray, receptors: List[Antenna],
                                 start_time: Optional[float] = None) -> CaptureState:
-        subarray_product = 'array_{}_{}'.format(sub.sub_nr, sub.product)
+        subarray_product = f'array_{sub.sub_nr}_{sub.product}'
         self._validate(post_configure=False)
         initial_state = await self.get_capture_state(subarray_product)
         config = self.config
@@ -94,10 +94,9 @@ class ScienceDataProcessor(KATCPComponent):
         self._validate()
         try:
             msg, _ = await self._client.request('telstate-endpoint', self.subarray_product)
-            # XXX log connection problems
             return msg[0].decode('utf-8')
-        except aiokatcp.FailReply:
-            return ''
+        except aiokatcp.FailReply as exc:
+            raise ComponentNotReadyError('Could not obtain telstate endpoint') from exc
 
     async def capture_init(self) -> None:
         self._validate()
