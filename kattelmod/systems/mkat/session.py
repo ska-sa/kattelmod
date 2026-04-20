@@ -1,4 +1,6 @@
 import argparse
+import hashlib
+from pathlib import Path
 from typing import Any, Iterable, Union
 
 from katpoint import Timestamp
@@ -7,6 +9,26 @@ from katsdptelstate.aio.redis import RedisBackend
 
 from kattelmod.session import CaptureSession as BaseCaptureSession, CaptureState
 from kattelmod.component import Component, MultiComponent
+
+VLBI_EXPERIMENT_KEY = "vlbi_experiment"
+VLBI_CATALOGUE_CONTENT_KEY = "vlbi_catalogue_content"
+VLBI_CATALOGUE_SHA256_KEY = "vlbi_catalogue_sha256"
+VLBI_CATALOGUE_NAME_KEY = "vlbi_catalogue_name"
+VLBI_CATALOGUE_FORMAT_KEY = "vlbi_catalogue_format"
+
+
+def _infer_vlbi_experiment(catalogue_text: str, catalogue_name: str) -> str:
+    for raw_line in catalogue_text.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("#"):
+            continue
+        tokens = line[1:].strip().split()
+        if len(tokens) >= 2 and tokens[0].upper() == "EXPERIMENT":
+            return tokens[1].strip().lower()
+    stem = Path(catalogue_name).stem
+    if stem.lower().startswith("vlbi_cat_"):
+        stem = stem[len("vlbi_cat_") :]
+    return stem.strip().lower()
 
 
 class CaptureSession(BaseCaptureSession):
@@ -20,6 +42,10 @@ class CaptureSession(BaseCaptureSession):
     def argparser(self, *args: Any, **kwargs: Any) -> argparse.ArgumentParser:
         parser = super().argparser(*args, **kwargs)
         parser.add_argument('--telstate', help="Override telstate (host:port or 'fake')")
+        parser.add_argument(
+            '--vlbi-catalogue',
+            help="Path to a per-observation VLBI catalogue CSV to serialize into capture-block telstate.",
+        )
         return parser
 
     async def _set_telstate(self, args: argparse.Namespace) -> None:
@@ -60,6 +86,31 @@ class CaptureSession(BaseCaptureSession):
             capture_block_id = await self.telstate['sdp_capture_block_id']
             self.obs_params['capture_block_id'] = capture_block_id
             self.telstate = self.telstate.view(capture_block_id)
+            vlbi_catalogue = self.obs_params.pop('vlbi_catalogue', None)
+            if vlbi_catalogue:
+                catalogue_path = Path(str(vlbi_catalogue)).expanduser().resolve()
+                catalogue_text = catalogue_path.read_text(encoding="utf-8")
+                catalogue_name = catalogue_path.name
+                catalogue_sha256 = hashlib.sha256(catalogue_text.encode("utf-8")).hexdigest()
+                vlbi_experiment = _infer_vlbi_experiment(catalogue_text, catalogue_name)
+                vlbi_metadata = self.obs_params.get('vlbi', {})
+                if not isinstance(vlbi_metadata, dict):
+                    vlbi_metadata = {}
+                vlbi_metadata = dict(vlbi_metadata)
+                vlbi_metadata.update(
+                    {
+                        "experiment": vlbi_experiment,
+                        "catalogue_name": catalogue_name,
+                        "catalogue_sha256": catalogue_sha256,
+                        "catalogue_format": "csv",
+                    }
+                )
+                self.obs_params['vlbi'] = vlbi_metadata
+                await self.telstate.add(VLBI_EXPERIMENT_KEY, vlbi_experiment, immutable=True)
+                await self.telstate.add(VLBI_CATALOGUE_NAME_KEY, catalogue_name, immutable=True)
+                await self.telstate.add(VLBI_CATALOGUE_FORMAT_KEY, "csv", immutable=True)
+                await self.telstate.add(VLBI_CATALOGUE_SHA256_KEY, catalogue_sha256, immutable=True)
+                await self.telstate.add(VLBI_CATALOGUE_CONTENT_KEY, catalogue_text, immutable=True)
             if 'obs' in self:
                 self.obs._telstate = self.telstate
                 self.obs.params = self.obs_params
